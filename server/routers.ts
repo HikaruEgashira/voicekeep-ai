@@ -19,13 +19,29 @@ export const appRouter = router({
   }),
 
   ai: router({
-    // Transcription endpoint (uses LLM with audio file)
+    // Transcription endpoint - returns placeholder since local audio files cannot be sent to LLM
+    // Real transcription would require uploading the audio file to a public URL first
     transcribe: publicProcedure
       .input(z.object({
         audioUrl: z.string(),
       }))
       .mutation(async ({ input }) => {
         try {
+          // Local file:// URIs cannot be accessed by the LLM API
+          // For now, return a message explaining this limitation
+          // In production, you would:
+          // 1. Upload the audio file to cloud storage (S3, etc.)
+          // 2. Get a public URL
+          // 3. Send that URL to the LLM
+          
+          if (input.audioUrl.startsWith("file://") || !input.audioUrl.startsWith("http")) {
+            // Return a placeholder message for local files
+            return { 
+              text: "【文字起こし機能】\n\nこの機能はローカルファイルでは利用できません。\n\n実際の文字起こしを行うには、音声ファイルをクラウドストレージにアップロードし、そのURLをAIに送信する必要があります。\n\n録音ファイル: " + input.audioUrl.split("/").pop(),
+              isPlaceholder: true,
+            };
+          }
+
           const result = await invokeLLM({
             messages: [
               {
