@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Text,
   View,
@@ -8,9 +8,11 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  Animated as RNAnimated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Swipeable } from "react-native-gesture-handler";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -69,6 +71,7 @@ interface RecordingCardProps {
 function RecordingCard({ recording, onPress, onDelete }: RecordingCardProps) {
   const colors = useColors();
   const statusInfo = getStatusLabel(recording.status);
+  const swipeableRef = useRef<Swipeable>(null);
 
   const handleLongPress = () => {
     if (Platform.OS !== "web") {
@@ -80,7 +83,54 @@ function RecordingCard({ recording, onPress, onDelete }: RecordingCardProps) {
     ]);
   };
 
-  return (
+  const handleDelete = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    Alert.alert("削除確認", `「${recording.title}」を削除しますか？`, [
+      { text: "キャンセル", style: "cancel", onPress: () => swipeableRef.current?.close() },
+      { text: "削除", style: "destructive", onPress: onDelete },
+    ]);
+  };
+
+  const renderRightActions = (
+    progress: RNAnimated.AnimatedInterpolation<number>,
+    dragX: RNAnimated.AnimatedInterpolation<number>
+  ) => {
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: "clamp",
+    });
+
+    const opacity = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+
+    return (
+      <RNAnimated.View
+        style={[
+          styles.deleteAction,
+          {
+            opacity,
+            transform: [{ translateX }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[styles.deleteButton, { backgroundColor: colors.error }]}
+          onPress={handleDelete}
+          activeOpacity={0.8}
+        >
+          <IconSymbol name="trash.fill" size={22} color="#FFFFFF" />
+          <Text style={styles.deleteText}>削除</Text>
+        </TouchableOpacity>
+      </RNAnimated.View>
+    );
+  };
+
+  const cardContent = (
     <TouchableOpacity
       onPress={onPress}
       onLongPress={handleLongPress}
@@ -125,6 +175,23 @@ function RecordingCard({ recording, onPress, onDelete }: RecordingCardProps) {
         </Text>
       )}
     </TouchableOpacity>
+  );
+
+  // Web doesn't support Swipeable well, so use long press only
+  if (Platform.OS === "web") {
+    return cardContent;
+  }
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      overshootRight={false}
+      friction={2}
+    >
+      {cardContent}
+    </Swipeable>
   );
 }
 
@@ -369,5 +436,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     lineHeight: 20,
+  },
+  deleteAction: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+    marginBottom: 12,
+  },
+  deleteButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    height: "100%",
+    borderRadius: 16,
+    gap: 4,
+  },
+  deleteText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

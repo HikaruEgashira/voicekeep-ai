@@ -36,7 +36,7 @@ function formatTime(seconds: number): string {
 export default function RecordScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { addRecording, updateRealtimeTranscript, clearRealtimeTranscript } = useRecordings();
+  const { addRecording, updateRealtimeTranscript, clearRealtimeTranscript, setTranscript } = useRecordings();
 
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -56,6 +56,7 @@ export default function RecordScreen() {
     state: realtimeState,
     startSession: startRealtimeSession,
     stopSession: stopRealtimeSession,
+    consolidateSegments,
   } = useRealtimeTranscription();
 
   // Keep screen awake during recording
@@ -298,6 +299,29 @@ export default function RecordScreen() {
       await addRecording(newRecording);
       console.log("Recording added successfully");
 
+      // Save realtime transcription result if available
+      if (realtimeEnabled && realtimeState.segments.length > 0) {
+        const realtimeText = consolidateSegments();
+        if (realtimeText.trim()) {
+          console.log("Saving realtime transcription result:", realtimeText.substring(0, 100));
+          // Convert realtime segments to Transcript format
+          const transcriptSegments = realtimeState.segments
+            .filter((s) => !s.isPartial)
+            .map((s) => ({
+              text: s.text,
+              startTime: s.timestamp,
+              endTime: s.timestamp, // リアルタイムでは終了時間が不明
+              speaker: s.speaker,
+            }));
+          await setTranscript(recordingId, {
+            text: realtimeText,
+            segments: transcriptSegments,
+            language: "ja",
+            processedAt: now,
+          });
+        }
+      }
+
       // Reset state
       setDuration(0);
       setHighlights([]);
@@ -310,7 +334,7 @@ export default function RecordScreen() {
       console.error("Failed to stop recording:", error);
       Alert.alert("エラー", "録音の保存に失敗しました");
     }
-  }, [audioRecorder, duration, highlights, notes, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession]);
+  }, [audioRecorder, duration, highlights, notes, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript]);
 
   const handleAddHighlight = useCallback(() => {
     if (Platform.OS !== "web") {
@@ -417,6 +441,12 @@ export default function RecordScreen() {
                     <Text style={[styles.statusText, { color: colors.warning }]}>接続中...</Text>
                   </>
                 )}
+                {realtimeState.connectionStatus === "disconnected" && (
+                  <>
+                    <View style={[styles.statusDot, { backgroundColor: colors.muted }]} />
+                    <Text style={[styles.statusText, { color: colors.muted }]}>未接続</Text>
+                  </>
+                )}
                 {realtimeState.connectionStatus === "error" && (
                   <>
                     <View style={[styles.statusDot, { backgroundColor: colors.error }]} />
@@ -429,7 +459,12 @@ export default function RecordScreen() {
               style={styles.realtimeContent}
               showsVerticalScrollIndicator={false}
             >
-              {realtimeState.segments.length === 0 ? (
+              {realtimeState.error && (
+                <Text style={[styles.realtimePlaceholder, { color: colors.error }]}>
+                  エラー: {realtimeState.error}
+                </Text>
+              )}
+              {!realtimeState.error && realtimeState.segments.length === 0 ? (
                 <Text style={[styles.realtimePlaceholder, { color: colors.muted }]}>
                   話し始めると、ここに文字起こし結果が表示されます...
                 </Text>

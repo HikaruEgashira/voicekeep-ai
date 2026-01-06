@@ -83,6 +83,7 @@ const config: ExpoConfig = {
         enableBackgroundAudio: true,
       },
     ],
+    "@mykin-ai/expo-audio-stream",
     [
       "expo-video",
       {

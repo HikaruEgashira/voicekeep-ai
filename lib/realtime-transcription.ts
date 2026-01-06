@@ -132,12 +132,12 @@ export class RealtimeTranscriptionClient {
       return;
     }
 
+    // ElevenLabs Realtime API の正しいメッセージフォーマット
     const message = {
-      input_audio_chunk: {
-        audio_base_64: audioBase64,
-        sample_rate: sampleRate,
-        ...(commit && { commit: true }),
-      },
+      message_type: "input_audio_chunk",
+      audio_base_64: audioBase64,
+      sample_rate: sampleRate,
+      commit,
     };
 
     try {
@@ -157,8 +157,10 @@ export class RealtimeTranscriptionClient {
       return;
     }
 
+    // ElevenLabs Realtime API の正しいメッセージフォーマット
     const message = {
-      input_audio_chunk: { commit: true },
+      message_type: "input_audio_chunk",
+      commit: true,
     };
 
     try {
@@ -214,9 +216,11 @@ export class RealtimeTranscriptionClient {
    * @param message - 受信したメッセージ
    */
   private handleMessage(message: RealtimeMessage): void {
-    console.log("[RealtimeClient] Received message:", message.type);
+    // ElevenLabsは message_type を使用する
+    const messageType = (message as any).message_type || message.type;
+    console.log("[RealtimeClient] Received message:", messageType, JSON.stringify(message).substring(0, 200));
 
-    switch (message.type) {
+    switch (messageType) {
       case "session_started":
         // セッション開始は connect() 内で処理済み
         break;

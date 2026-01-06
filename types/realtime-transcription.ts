@@ -67,9 +67,11 @@ export interface RealtimeTranscriptionSettings {
  * ElevenLabs Realtime APIメッセージ型
  */
 export interface RealtimeMessage {
-  /** メッセージタイプ */
-  type: 'session_started' | 'partial_transcript' | 'committed_transcript' |
+  /** メッセージタイプ（ElevenLabsは message_type を使用） */
+  message_type?: 'session_started' | 'partial_transcript' | 'committed_transcript' |
         'committed_transcript_with_timestamps' | 'error';
+  /** 旧フィールド名（互換性のため） */
+  type?: string;
   /** メッセージデータ */
   [key: string]: unknown;
 }

@@ -30,7 +30,7 @@
 - [x] 要約結果表示
 - [x] Q&Aチャットインターフェース
 - [x] 検索機能
-- [ ] スワイプ削除
+- [x] スワイプ削除
 
 ## Branding
 - [x] アプリアイコン生成
@@ -48,8 +48,9 @@
 - [x] ElevenLabs音声処理APIの統合（文字起こし）
 
 ## Realtime Transcription
-- [ ] ElevenLabs Scribe v2 Realtime APIの調査
-- [ ] WebSocketクライアントの実装
-- [ ] 録音画面にリアルタイム文字起こしを統合
-- [ ] リアルタイム文字起こしのテスト
+- [x] ElevenLabs Scribe v2 Realtime APIの調査
+- [x] WebSocketクライアントの実装
+- [x] 録音画面にリアルタイム文字起こしを統合
+- [x] リアルタイム文字起こしのテスト
 - [x] 文字起こしのBase64送信が失敗する問題を修正（Web版の制限を明示、実機でのみ動作）
+- [x] リアルタイム文字起こし結果の保存機能
