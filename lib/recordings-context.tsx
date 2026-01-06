@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Recording, Highlight, Transcript, Summary, QAMessage } from '@/types/recording';
 import type { TranscriptSegment as RealtimeTranscriptSegment } from '@/types/realtime-transcription';
 
-const STORAGE_KEY = 'plaud_recordings';
+const STORAGE_KEY = 'voicenote_recordings';
 
 interface RecordingsState {
   recordings: Recording[];
@@ -83,13 +83,13 @@ function recordingsReducer(state: RecordingsState, action: RecordingsAction): Re
         recordings: state.recordings.map((r) =>
           r.id === action.payload.recordingId
             ? {
-                ...r,
-                realtimeTranscript: {
-                  segments: action.payload.segments,
-                  lastUpdated: new Date(),
-                },
-                updatedAt: new Date(),
-              }
+              ...r,
+              realtimeTranscript: {
+                segments: action.payload.segments,
+                lastUpdated: new Date(),
+              },
+              updatedAt: new Date(),
+            }
             : r
         ),
       };

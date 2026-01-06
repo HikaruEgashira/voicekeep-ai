@@ -2,7 +2,7 @@
 
 ## Overview
 
-音声録音、AI文字起こし、要約、Q&A機能を備えたモバイルアプリ。Plaud Note Proの主要機能をReact Native/Expoで再現する。
+音声録音、AI文字起こし、要約、Q&A機能を備えたモバイルアプリ。voicenote Note Proの主要機能をReact Native/Expoで再現する。
 
 ## Screen List
 

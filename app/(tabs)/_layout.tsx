@@ -41,10 +41,8 @@ export default function TabLayout() {
         name="record"
         options={{
           title: "録音",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.recordButton, { backgroundColor: focused ? colors.primary : colors.muted }]}>
-              <IconSymbol size={20} name="mic.fill" color="#FFFFFF" />
-            </View>
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={20} name="mic.fill" color={color} />
           ),
         }}
       />
@@ -58,14 +56,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  recordButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-});
