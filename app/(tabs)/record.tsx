@@ -3,14 +3,13 @@ import {
   Text,
   View,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   Platform,
   Alert,
   Animated,
   ScrollView,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from "expo-audio";
 import { useKeepAwake } from "expo-keep-awake";
 import * as FileSystem from "expo-file-system/legacy";
@@ -36,20 +35,24 @@ function formatTime(seconds: number): string {
 export default function RecordScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { addRecording, updateRealtimeTranscript, clearRealtimeTranscript, setTranscript } = useRecordings();
+  const { addRecording, updateRealtimeTranscript, setTranscript } = useRecordings();
 
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [notes, setNotes] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [realtimeEnabled, setRealtimeEnabled] = useState(false);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
+
+  // 録音完了後かどうかを追跡（完了後は自動録音しない）
+  const justCompletedRef = useRef(false);
 
   const audioRecorder = useAudioRecorder(RECORDING_OPTIONS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Realtime transcription hook
   const {
@@ -57,10 +60,29 @@ export default function RecordScreen() {
     startSession: startRealtimeSession,
     stopSession: stopRealtimeSession,
     consolidateSegments,
+    mergedSegments,
   } = useRealtimeTranscription();
 
   // Keep screen awake during recording
   useKeepAwake();
+
+  useFocusEffect(
+    useCallback(() => {
+      // 録音完了後から戻ってきた場合はフラグをリセットするのみ
+      if (justCompletedRef.current) {
+        justCompletedRef.current = false;
+        // クリーンアップは必ず返す（次のタブ移動でhasAutoStartedをリセットするため）
+      }
+
+      return () => {
+        // 他のタブに移動する時のみhasAutoStartedをリセット
+        // 録音完了後のノート詳細への遷移時はリセットしない
+        if (!justCompletedRef.current) {
+          setHasAutoStarted(false);
+        }
+      };
+    }, [])
+  );
 
   // Load settings
   useEffect(() => {
@@ -145,6 +167,12 @@ export default function RecordScreen() {
     }
   }, [currentRecordingId, realtimeState.segments, updateRealtimeTranscript]);
 
+  useEffect(() => {
+    if (realtimeState.segments.length > 0 && scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }, [realtimeState.segments]);
+
   const handleStartRecording = useCallback(async () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -158,7 +186,6 @@ export default function RecordScreen() {
       setIsPaused(false);
       setDuration(0);
       setHighlights([]);
-      setNotes("");
 
       // Create temporary recording ID for realtime transcription
       const recordingId = Date.now().toString();
@@ -179,6 +206,13 @@ export default function RecordScreen() {
       Alert.alert("エラー", "録音を開始できませんでした");
     }
   }, [audioRecorder, realtimeEnabled, startRealtimeSession]);
+
+  useEffect(() => {
+    if (hasPermission && !hasAutoStarted && !isRecording) {
+      setHasAutoStarted(true);
+      handleStartRecording();
+    }
+  }, [hasPermission, hasAutoStarted, isRecording, handleStartRecording]);
 
   const handlePauseResume = useCallback(async () => {
     if (Platform.OS !== "web") {
@@ -202,6 +236,9 @@ export default function RecordScreen() {
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+
+    // 録音完了フラグを最初に設定（非同期処理の前に）
+    justCompletedRef.current = true;
 
     try {
       // Stop realtime transcription session
@@ -227,7 +264,6 @@ export default function RecordScreen() {
       console.log("Recording stopped, URI:", uri);
 
       let finalUri = uri;
-      let audioBase64: string | undefined;
 
       // On Web, convert blob to base64 and store it
       // Blob URLs are temporary and won't work after page reload
@@ -251,7 +287,6 @@ export default function RecordScreen() {
           });
 
           console.log("Base64 conversion completed, length:", base64Data.length);
-          audioBase64 = base64Data;
           // Use data URL for web storage
           finalUri = `data:audio/webm;base64,${base64Data}`;
         } catch (webError) {
@@ -290,7 +325,7 @@ export default function RecordScreen() {
         createdAt: now,
         updatedAt: now,
         highlights,
-        notes,
+        notes: "",
         qaHistory: [],
         status: "saved",
       };
@@ -325,7 +360,6 @@ export default function RecordScreen() {
       // Reset state
       setDuration(0);
       setHighlights([]);
-      setNotes("");
       setCurrentRecordingId(null);
 
       // Navigate to note detail
@@ -333,8 +367,10 @@ export default function RecordScreen() {
     } catch (error) {
       console.error("Failed to stop recording:", error);
       Alert.alert("エラー", "録音の保存に失敗しました");
+      // エラー時はフラグをリセット（再録音できるように）
+      justCompletedRef.current = false;
     }
-  }, [audioRecorder, duration, highlights, notes, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript]);
+  }, [audioRecorder, duration, highlights, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript]);
 
   const handleAddHighlight = useCallback(() => {
     if (Platform.OS !== "web") {
@@ -347,6 +383,39 @@ export default function RecordScreen() {
     };
     setHighlights((prev) => [...prev, newHighlight]);
   }, [duration]);
+
+  const handleCancelRecording = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+
+    try {
+      // Stop realtime transcription session
+      if (realtimeEnabled && currentRecordingId) {
+        try {
+          await stopRealtimeSession();
+        } catch (error) {
+          console.error("Failed to stop realtime session:", error);
+        }
+      }
+
+      // Stop recorder without saving
+      await audioRecorder.stop();
+
+      setIsRecording(false);
+      setIsPaused(false);
+      setDuration(0);
+      setHighlights([]);
+      setCurrentRecordingId(null);
+    } catch (error) {
+      console.error("Failed to cancel recording:", error);
+      setIsRecording(false);
+      setIsPaused(false);
+      setDuration(0);
+      setHighlights([]);
+      setCurrentRecordingId(null);
+    }
+  }, [audioRecorder, realtimeEnabled, currentRecordingId, stopRealtimeSession]);
 
   if (hasPermission === null) {
     return (
@@ -456,8 +525,9 @@ export default function RecordScreen() {
               </View>
             </View>
             <ScrollView
+              ref={scrollViewRef}
               style={styles.realtimeContent}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
             >
               {realtimeState.error && (
                 <Text style={[styles.realtimePlaceholder, { color: colors.error }]}>
@@ -469,7 +539,7 @@ export default function RecordScreen() {
                   話し始めると、ここに文字起こし結果が表示されます...
                 </Text>
               ) : (
-                realtimeState.segments.map((segment) => (
+                mergedSegments.map((segment) => (
                   <View key={segment.id} style={styles.segmentItem}>
                     {segment.speaker && (
                       <Text style={[styles.speakerLabel, { color: colors.secondary }]}>
@@ -494,34 +564,9 @@ export default function RecordScreen() {
           </View>
         )}
 
-        {/* Highlights count */}
-        {highlights.length > 0 && (
-          <View style={styles.highlightsInfo}>
-            <IconSymbol name="star.fill" size={16} color={colors.highlight} />
-            <Text style={[styles.highlightsText, { color: colors.highlight }]}>
-              {highlights.length}個のハイライト
-            </Text>
-          </View>
-        )}
-
-        {/* Notes input */}
-        {isRecording && (
-          <View style={[styles.notesContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <TextInput
-              style={[styles.notesInput, { color: colors.foreground }]}
-              placeholder="メモを追加..."
-              placeholderTextColor={colors.muted}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              maxLength={500}
-            />
-          </View>
-        )}
-
-        {/* Controls */}
-        <View style={styles.controls}>
-          {!isRecording ? (
+        {/* Controls - Not recording: centered */}
+        {!isRecording && (
+          <View style={styles.controls}>
             <TouchableOpacity
               onPress={handleStartRecording}
               style={[styles.recordButton, { backgroundColor: colors.primary }]}
@@ -529,46 +574,67 @@ export default function RecordScreen() {
             >
               <IconSymbol name="mic.fill" size={40} color="#FFFFFF" />
             </TouchableOpacity>
-          ) : (
-            <View style={styles.recordingControls}>
-              {/* Highlight button */}
-              <TouchableOpacity
-                onPress={handleAddHighlight}
-                style={[styles.controlButton, { backgroundColor: colors.highlight }]}
-              >
-                <IconSymbol name="star.fill" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              {/* Pause/Resume button */}
-              <TouchableOpacity
-                onPress={handlePauseResume}
-                style={[styles.pauseButton, { backgroundColor: isPaused ? colors.primary : colors.surface }]}
-              >
-                <IconSymbol
-                  name={isPaused ? "play.fill" : "pause.fill"}
-                  size={32}
-                  color={isPaused ? "#FFFFFF" : colors.foreground}
-                />
-              </TouchableOpacity>
-
-              {/* Stop button */}
-              <TouchableOpacity
-                onPress={handleStopRecording}
-                style={[styles.controlButton, { backgroundColor: colors.error }]}
-              >
-                <IconSymbol name="stop.fill" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Instructions */}
-        {!isRecording && (
-          <Text style={[styles.instructions, { color: colors.muted }]}>
-            ボタンをタップして録音を開始
-          </Text>
+            <Text style={[styles.instructions, { color: colors.muted }]}>
+              ボタンをタップして録音を開始
+            </Text>
+          </View>
         )}
       </View>
+
+      {/* Player-style controls bar - Recording: fixed at bottom */}
+      {isRecording && (
+        <View style={[styles.playerBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          {/* Cancel button - left side */}
+          <TouchableOpacity
+            onPress={handleCancelRecording}
+            style={[styles.sideButton, { backgroundColor: colors.border }]}
+          >
+            <IconSymbol name="xmark" size={20} color={colors.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.playerControls}>
+            {/* Highlight button */}
+            <TouchableOpacity
+              onPress={handleAddHighlight}
+              style={[styles.playerButton, { backgroundColor: colors.highlight }]}
+            >
+              <IconSymbol name="star.fill" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* Pause/Resume button */}
+            <TouchableOpacity
+              onPress={handlePauseResume}
+              style={[styles.playerButton, { backgroundColor: isPaused ? colors.primary : colors.foreground }]}
+            >
+              <IconSymbol
+                name={isPaused ? "play.fill" : "pause.fill"}
+                size={24}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+
+            {/* Stop & Save button */}
+            <TouchableOpacity
+              onPress={handleStopRecording}
+              style={[styles.playerButton, { backgroundColor: colors.success }]}
+            >
+              <IconSymbol name="checkmark" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Highlights count - right side */}
+          <View style={styles.sideButton}>
+            {highlights.length > 0 && (
+              <>
+                <IconSymbol name="star.fill" size={12} color={colors.highlight} />
+                <Text style={[styles.highlightsBadgeText, { color: colors.highlight }]}>
+                  {highlights.length}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      )}
     </ScreenContainer>
   );
 }
@@ -643,32 +709,11 @@ const styles = StyleSheet.create({
     width: 3,
     borderRadius: 2,
   },
-  highlightsInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 16,
-  },
-  highlightsText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  notesContainer: {
-    marginTop: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    minHeight: 80,
-  },
-  notesInput: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
   controls: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    gap: 24,
   },
   recordButton: {
     width: 96,
@@ -682,36 +727,50 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  recordingControls: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 24,
-  },
-  controlButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pauseButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   instructions: {
     textAlign: "center",
     fontSize: 14,
-    marginBottom: 40,
+  },
+  playerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+  },
+  sideButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+  },
+  highlightsBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  playerControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+  },
+  playerButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   realtimeSection: {
     marginTop: 16,
+    marginBottom: 16,
     borderRadius: 12,
     borderWidth: 1,
     padding: 12,
-    maxHeight: 200,
+    flex: 1,
   },
   realtimeHeader: {
     flexDirection: "row",
@@ -743,7 +802,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   realtimeContent: {
-    maxHeight: 140,
+    flex: 1,
   },
   realtimePlaceholder: {
     fontSize: 13,
