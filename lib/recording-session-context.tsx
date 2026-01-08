@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { Platform, Alert, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
+import { useAudioRecorder, useAudioRecorderState, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,7 +66,12 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const audioRecorder = useAudioRecorder(RECORDING_OPTIONS);
   const [meteringHistory, setMeteringHistory] = useState<number[]>([]);
   const [fullMeteringHistory, setFullMeteringHistory] = useState<number[]>([]);
-  const metering = useAudioMetering(isRecording && !isPaused);
+
+  // Web: use Web Audio API via useAudioMetering hook
+  // Native: use expo-audio's useAudioRecorderState for metering
+  const webMetering = useAudioMetering(isRecording && !isPaused);
+  const recorderState = useAudioRecorderState(audioRecorder, 100);
+  const metering = Platform.OS === 'web' ? webMetering : (recorderState.metering ?? -160);
 
   const {
     state: realtimeState,
