@@ -1,5 +1,5 @@
 // Load environment variables with proper priority (system > .env)
-import "./scripts/load-env.js";
+require("./scripts/load-env.js");
 import type { ExpoConfig } from "expo/config";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
