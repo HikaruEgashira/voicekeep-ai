@@ -2,10 +2,10 @@ import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Platform, View, StyleSheet } from "react-native";
 
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useColors } from "@/hooks/use-colors";
-import { GlobalRecordingBar } from "@/components/global-recording-bar";
+import { HapticTab } from "@/packages/components/haptic-tab";
+import { IconSymbol } from "@/packages/components/ui/icon-symbol";
+import { useColors } from "@/packages/hooks/use-colors";
+import { GlobalRecordingBar } from "@/packages/components/global-recording-bar";
 
 export default function TabLayout() {
   const colors = useColors();

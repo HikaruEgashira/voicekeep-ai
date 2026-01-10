@@ -7,4 +7,4 @@ export {
   SchemeColors,
   type ColorScheme,
   type ThemeColorPalette,
-} from "@/lib/_core/theme";
+} from "@/packages/lib/_core/theme";

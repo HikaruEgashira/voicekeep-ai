@@ -14,11 +14,11 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Swipeable } from "react-native-gesture-handler";
 
-import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useRecordings } from "@/lib/recordings-context";
-import { useColors } from "@/hooks/use-colors";
-import { Recording } from "@/types/recording";
+import { ScreenContainer } from "@/packages/components/screen-container";
+import { IconSymbol } from "@/packages/components/ui/icon-symbol";
+import { useRecordings } from "@/packages/lib/recordings-context";
+import { useColors } from "@/packages/hooks/use-colors";
+import { Recording } from "@/packages/types/recording";
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);

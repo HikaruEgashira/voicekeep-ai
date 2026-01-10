@@ -9,23 +9,21 @@ COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm && \
     pnpm install --frozen-lockfile --prod
 
-# Copy server code and dependencies
-COPY server ./server
-COPY shared ./shared
-COPY drizzle ./drizzle
+# Copy application code and dependencies
+COPY apps/server ./apps/server
+COPY packages ./packages
 COPY tsconfig.json ./
 
 # Install dev dependencies for build
 RUN pnpm install --frozen-lockfile
 
-# Build Lambda handler
-RUN pnpm add @codegenie/serverless-express && \
-    npx esbuild server/lambda.ts \
-    --bundle \
+# Build main application
+RUN npx esbuild apps/server/_core/index.ts \
     --platform=node \
-    --target=node20 \
-    --outfile=dist/lambda.js \
-    --external:aws-sdk
+    --packages=external \
+    --bundle \
+    --format=esm \
+    --outdir=dist
 
 # Set the handler
-CMD ["dist/lambda.handler"]
+CMD ["dist/index.js"]

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { Appearance, View, useColorScheme as useSystemColorScheme } from "react-native";
 import { colorScheme as nativewindColorScheme, vars } from "nativewind";
 
-import { SchemeColors, type ColorScheme } from "@/constants/theme";
+import { SchemeColors, type ColorScheme } from "@/packages/constants/theme";
 
 type ThemeContextValue = {
   colorScheme: ColorScheme;

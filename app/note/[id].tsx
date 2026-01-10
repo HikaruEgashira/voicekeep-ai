@@ -15,13 +15,13 @@ import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useRecordings } from "@/lib/recordings-context";
-import { useColors } from "@/hooks/use-colors";
-import { QAMessage } from "@/types/recording";
-import { trpc } from "@/lib/trpc";
-import { GlobalRecordingBar } from "@/components/global-recording-bar";
+import { ScreenContainer } from "@/packages/components/screen-container";
+import { IconSymbol } from "@/packages/components/ui/icon-symbol";
+import { useRecordings } from "@/packages/lib/recordings-context";
+import { useColors } from "@/packages/hooks/use-colors";
+import { QAMessage } from "@/packages/types/recording";
+import { trpc } from "@/packages/lib/trpc";
+import { GlobalRecordingBar } from "@/packages/components/global-recording-bar";
 
 type TabType = "audio" | "transcript" | "summary" | "qa";
 

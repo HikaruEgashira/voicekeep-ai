@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Recording, Highlight, Transcript, Summary, QAMessage } from '@/types/recording';
-import type { TranscriptSegment as RealtimeTranscriptSegment } from '@/types/realtime-transcription';
+import { Recording, Highlight, Transcript, Summary, QAMessage } from '@/packages/types/recording';
+import type { TranscriptSegment as RealtimeTranscriptSegment } from '@/packages/types/realtime-transcription';
 
 const STORAGE_KEY = 'voicenote_recordings';
 

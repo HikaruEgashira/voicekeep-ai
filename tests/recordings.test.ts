@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Recording, Highlight, Transcript, Summary, QAMessage } from "../types/recording";
+import type { Recording, Highlight, Transcript, Summary, QAMessage } from "../packages/types/recording";
 
 describe("Recording Types", () => {
   it("should create a valid Recording object", () => {

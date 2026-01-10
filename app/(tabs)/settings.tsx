@@ -12,10 +12,10 @@ import {
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useRecordings } from "@/lib/recordings-context";
-import { useColors } from "@/hooks/use-colors";
+import { ScreenContainer } from "@/packages/components/screen-container";
+import { IconSymbol } from "@/packages/components/ui/icon-symbol";
+import { useRecordings } from "@/packages/lib/recordings-context";
+import { useColors } from "@/packages/hooks/use-colors";
 
 type SummaryTemplate = "general" | "meeting" | "interview" | "lecture";
 type Language = "ja" | "en" | "auto";

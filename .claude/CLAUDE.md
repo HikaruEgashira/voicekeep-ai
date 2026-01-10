@@ -4,25 +4,27 @@ Expo + tRPC ボイスメモアプリ
 
 ## Entry Points
 - Client: `app/_layout.tsx`
-- Server: `server/_core/index.ts`
-- DB Schema: `drizzle/schema.ts`
+- Server: `apps/server/_core/index.ts`
 
 ## Structure
 ```
-app/           # Expo Router pages
-  (tabs)/      # Tab navigation (record, index, settings)
-  note/[id]    # Note detail
-server/        # tRPC backend
-  _core/       # Framework (trpc, auth, llm)
-  routers.ts   # API routes
-lib/           # Client utilities
-hooks/         # React hooks
-components/    # UI components
-drizzle/       # DB schema
+app/               # Expo Router pages (クライアント)
+  (tabs)/          # Tab navigation (record, index, settings)
+  note/[id]        # Note detail
+apps/              # 実行可能アプリケーション
+  server/          # tRPC backend
+    _core/         # Framework (trpc, llm)
+    routers.ts     # API routes
+packages/          # 共有ライブラリ
+  components/      # UI components
+  hooks/           # React hooks
+  lib/             # Client utilities
+  types/           # Type definitions
+  constants/       # Constants
+  infra/           # Terraform IaC
 ```
 
 ## Tech Stack
 - Expo 54 + React Native 0.81
 - tRPC 11 + Express
-- Drizzle ORM + MySQL
 - ElevenLabs STT, Gemini AI

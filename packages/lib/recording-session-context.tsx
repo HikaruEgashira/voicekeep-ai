@@ -7,9 +7,9 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRecordings } from './recordings-context';
-import { useRealtimeTranscription } from '@/hooks/use-realtime-transcription';
-import { useAudioMetering } from '@/hooks/use-audio-metering';
-import { Recording, Highlight } from '@/types/recording';
+import { useRealtimeTranscription } from '@/packages/hooks/use-realtime-transcription';
+import { useAudioMetering } from '@/packages/hooks/use-audio-metering';
+import { Recording, Highlight } from '@/packages/types/recording';
 
 const RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,

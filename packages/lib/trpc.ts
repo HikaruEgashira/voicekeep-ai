@@ -1,7 +1,7 @@
 import { createTRPCReact } from "@trpc/react-query";
 import { httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
-import type { AppRouter } from "@/server/routers";
+import type { AppRouter } from "@/apps/server/routers";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 

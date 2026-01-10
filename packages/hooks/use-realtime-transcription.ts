@@ -7,14 +7,14 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Alert, Platform } from "react-native";
-import { trpc } from "@/lib/trpc";
-import { RealtimeTranscriptionClient } from "@/lib/realtime-transcription";
-import { WebAudioStream } from "@/lib/web-audio-stream";
+import { trpc } from "@/packages/lib/trpc";
+import { RealtimeTranscriptionClient } from "@/packages/lib/realtime-transcription";
+import { WebAudioStream } from "@/packages/lib/web-audio-stream";
 import type {
   TranscriptSegment,
   RealtimeTranscriptionState,
   RealtimeOptions,
-} from "@/types/realtime-transcription";
+} from "@/packages/types/realtime-transcription";
 
 // ネイティブプラットフォームでのみ expo-audio-stream をインポート
 let ExpoPlayAudioStream: any = null;

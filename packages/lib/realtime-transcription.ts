@@ -11,7 +11,7 @@ import type {
   CommittedTranscriptMessage,
   CommittedTranscriptWithTimestampsMessage,
   ErrorMessage,
-} from "@/types/realtime-transcription";
+} from "@/packages/types/realtime-transcription";
 
 const ELEVENLABS_REALTIME_ENDPOINT = "wss://api.elevenlabs.io/v1/speech-to-text/realtime";
 

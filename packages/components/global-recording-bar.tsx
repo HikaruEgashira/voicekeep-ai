@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useColors } from '@/hooks/use-colors';
-import { useRecordingSession } from '@/lib/recording-session-context';
+import { IconSymbol } from '@/packages/components/ui/icon-symbol';
+import { useColors } from '@/packages/hooks/use-colors';
+import { useRecordingSession } from '@/packages/lib/recording-session-context';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
