@@ -6,6 +6,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "voicenote-api-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "ap-northeast-1"
+    dynamodb_table = "voicenote-api-terraform-lock"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
