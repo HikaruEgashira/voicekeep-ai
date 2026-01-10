@@ -162,3 +162,45 @@ Explore Agentを実行し、トークン消費パターンを検証
 
 ### Status: PUSH
 効果が確認できたため、この変更をpushする
+
+## Experiment: 2026-01-11 (追加実験)
+
+### 実験内容
+CLAUDE.md構造変更によるトークン削減効果の検証
+
+### 変更内容
+- Quick Reference表を追加（主要機能とファイルの対応表）
+- Structureセクションを削除してファイルサイズ削減
+
+### 結果
+
+**ツール呼び出し:**
+- Read/Glob/Grep呼び出し: 14回 → 4回に減少
+
+**トークン消費:**
+- 総トークン消費は増加（約30K → 約62K tokens）
+- 原因：セッション長が延長（60 messages → 144 messages）
+
+**deslop評価:**
+- Quick Reference表の追加は有用
+- Structureセクションの削除は**過度な最適化**
+- 元のStructure情報はプロジェクト理解に必要
+
+### 結論
+
+1. **CLAUDE.md圧縮の効果は限定的**
+   - ファイルサイズ削減によるトークン削減効果は小さい
+   - 情報の欠落はExplore Agentの探索効率を下げる可能性
+
+2. **最も効果的なアプローチ**
+   - プロンプトでの「簡潔に回答」指示
+   - 適切な情報量を持つCLAUDE.mdの維持
+
+3. **CLAUDE.mdのベストプラクティス**
+   - Entry Points: 必須
+   - Structure: 必須（探索効率向上）
+   - Tech Stack: 必須（技術選定の理解）
+   - 過度な圧縮・省略は避ける
+
+### Status: REVERT
+効果が確認できなかったため、CLAUDE.md変更をrevert
