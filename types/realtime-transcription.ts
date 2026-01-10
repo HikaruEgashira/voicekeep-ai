@@ -52,18 +52,6 @@ export interface RealtimeTranscriptionState {
 }
 
 /**
- * リアルタイム文字起こしの設定
- */
-export interface RealtimeTranscriptionSettings {
-  /** リアルタイムモードを有効化 */
-  enabled: boolean;
-  /** 言語コード */
-  language: string;
-  /** 話者分離を有効化 */
-  enableSpeakerDiarization: boolean;
-}
-
-/**
  * ElevenLabs Realtime APIメッセージ型
  */
 export interface RealtimeMessage {

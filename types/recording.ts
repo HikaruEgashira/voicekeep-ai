@@ -62,5 +62,3 @@ export interface Recording {
   /** 正規化済み波形データ (0-1) */
   waveformData?: number[];
 }
-
-export type RecordingStatus = Recording['status'];

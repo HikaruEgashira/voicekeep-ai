@@ -113,9 +113,3 @@ export function initManusRuntime(): void {
   sendToParent("appDevServerReady", {});
 }
 
-/**
- * Check if running inside preview iframe
- */
-export function isRunningInPreviewIframe(): boolean {
-  return isWeb() && isInIframe();
-}
