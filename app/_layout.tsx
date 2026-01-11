@@ -52,7 +52,8 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const segments = useSegments();
-  const isWebsite = segments[0] === "website";
+  // ウェブのランディングページ（/ または /website）では録音機能をスキップ
+  const isWebLanding = Platform.OS === "web" && (segments.length === 0 || segments[0] === "website");
 
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
@@ -62,10 +63,10 @@ export default function RootLayout() {
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
-    if (!isWebsite) {
+    if (!isWebLanding) {
       initManusRuntime();
     }
-  }, [isWebsite]);
+  }, [isWebLanding]);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
     setInsets(metrics.insets);
@@ -73,10 +74,10 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || isWebsite) return;
+    if (Platform.OS !== "web" || isWebLanding) return;
     const unsubscribe = subscribeSafeAreaInsets(handleSafeAreaUpdate);
     return () => unsubscribe();
-  }, [handleSafeAreaUpdate, isWebsite]);
+  }, [handleSafeAreaUpdate, isWebLanding]);
 
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
@@ -104,7 +105,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppProviders>
         {stack}
-        <StatusBar style={isWebsite ? "dark" : "auto"} />
+        <StatusBar style={isWebLanding ? "dark" : "auto"} />
       </AppProviders>
     </GestureHandlerRootView>
   );
