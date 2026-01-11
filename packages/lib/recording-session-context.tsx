@@ -488,10 +488,36 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   );
 }
 
+// ウェブのランディングページなど、プロバイダーがない場合のデフォルト値
+const defaultState: RecordingSessionState = {
+  isRecording: false,
+  isPaused: false,
+  duration: 0,
+  highlights: [],
+  hasPermission: null,
+  realtimeEnabled: false,
+  currentRecordingId: null,
+  justCompleted: false,
+  metering: -160,
+  meteringHistory: [],
+};
+
+const defaultValue: RecordingSessionContextValue = {
+  state: defaultState,
+  pulseAnim: new Animated.Value(1),
+  realtimeState: { isConnected: false, isConnecting: false, segments: [], error: null },
+  mergedSegments: [],
+  startRecording: async () => {},
+  pauseResume: async () => {},
+  stopRecording: async () => {},
+  cancelRecording: async () => {},
+  addHighlight: () => {},
+  clearJustCompleted: () => {},
+  tryAutoStartOnFirstLaunch: () => {},
+};
+
 export function useRecordingSession() {
   const context = useContext(RecordingSessionContext);
-  if (!context) {
-    throw new Error('useRecordingSession must be used within a RecordingSessionProvider');
-  }
-  return context;
+  // プロバイダーがない場合はデフォルト値を返す（ウェブのランディングページなど）
+  return context ?? defaultValue;
 }

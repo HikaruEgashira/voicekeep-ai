@@ -279,10 +279,23 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
+// ウェブのランディングページなど、プロバイダーがない場合のデフォルト値
+const defaultValue: RecordingsContextValue = {
+  state: { recordings: [], isLoading: false },
+  addRecording: async () => {},
+  updateRecording: async () => {},
+  deleteRecording: async () => {},
+  addHighlight: async () => {},
+  setTranscript: async () => {},
+  setSummary: async () => {},
+  addQAMessage: async () => {},
+  updateRealtimeTranscript: () => {},
+  clearRealtimeTranscript: () => {},
+  getRecording: () => undefined,
+};
+
 export function useRecordings() {
   const context = useContext(RecordingsContext);
-  if (!context) {
-    throw new Error('useRecordings must be used within a RecordingsProvider');
-  }
-  return context;
+  // プロバイダーがない場合はデフォルト値を返す（ウェブのランディングページなど）
+  return context ?? defaultValue;
 }
