@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - 'app/index.web.tsx'
       - 'app/website/**'
       - 'packages/**'
       - 'app.config.ts'
