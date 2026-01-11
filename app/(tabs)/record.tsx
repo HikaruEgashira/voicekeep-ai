@@ -42,6 +42,9 @@ export default function RecordScreen() {
     pulseAnim,
     realtimeState,
     mergedSegments,
+    getTranslation,
+    getTranslationStatus,
+    isTranslating,
     startRecording,
   } = useRecordingSession();
 
@@ -51,6 +54,7 @@ export default function RecordScreen() {
     duration,
     hasPermission,
     realtimeEnabled,
+    translationEnabled,
     meteringHistory,
   } = state;
 
@@ -195,6 +199,11 @@ export default function RecordScreen() {
                 <Text style={[styles.realtimeTitle, { color: colors.foreground }]}>
                   リアルタイム文字起こし
                 </Text>
+                {translationEnabled && isTranslating && (
+                  <Text style={[styles.translatingBadge, { color: colors.primary, backgroundColor: colors.primary + "20" }]}>
+                    翻訳中...
+                  </Text>
+                )}
               </View>
               <View style={styles.realtimeStatus}>
                 {realtimeState.connectionStatus === "connected" && (
@@ -238,26 +247,63 @@ export default function RecordScreen() {
                   話し始めると、ここに文字起こし結果が表示されます...
                 </Text>
               ) : (
-                mergedSegments.map((segment) => (
-                  <View key={segment.id} style={styles.segmentItem}>
-                    {segment.speaker && (
-                      <Text style={[styles.speakerLabel, { color: colors.secondary }]}>
-                        [{segment.speaker}]
-                      </Text>
-                    )}
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        {
-                          color: segment.isPartial ? colors.muted : colors.foreground,
-                          fontStyle: segment.isPartial ? "italic" : "normal",
-                        },
-                      ]}
-                    >
-                      {segment.text}
-                    </Text>
-                  </View>
-                ))
+                mergedSegments.map((segment) => {
+                  const translation = translationEnabled ? getTranslation(segment.id) : undefined;
+                  const translationStatus = translationEnabled ? getTranslationStatus(segment.id) : undefined;
+
+                  return (
+                    <View key={segment.id} style={styles.segmentItem}>
+                      {segment.speaker && (
+                        <Text style={[styles.speakerLabel, { color: colors.secondary }]}>
+                          [{segment.speaker}]
+                        </Text>
+                      )}
+                      {/* 並列表示レイアウト */}
+                      <View style={translationEnabled ? styles.segmentRow : undefined}>
+                        {/* 元テキスト */}
+                        <View style={translationEnabled ? styles.segmentColumn : undefined}>
+                          <Text
+                            style={[
+                              styles.segmentText,
+                              {
+                                color: segment.isPartial ? colors.muted : colors.foreground,
+                                fontStyle: segment.isPartial ? "italic" : "normal",
+                              },
+                            ]}
+                          >
+                            {segment.text}
+                          </Text>
+                        </View>
+                        {/* 翻訳テキスト */}
+                        {translationEnabled && (
+                          <View style={[styles.segmentColumn, styles.translationColumn, { borderLeftColor: colors.border }]}>
+                            {translationStatus === "pending" ? (
+                              <Text style={[styles.translationPending, { color: colors.muted }]}>
+                                翻訳中...
+                              </Text>
+                            ) : translationStatus === "error" ? (
+                              <Text style={[styles.translationError, { color: colors.error }]}>
+                                翻訳エラー
+                              </Text>
+                            ) : translation ? (
+                              <Text
+                                style={[
+                                  styles.segmentText,
+                                  {
+                                    color: segment.isPartial ? colors.primary + "99" : colors.primary,
+                                    fontStyle: segment.isPartial ? "italic" : "normal",
+                                  },
+                                ]}
+                              >
+                                {translation}
+                              </Text>
+                            ) : null}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
               )}
             </ScrollView>
           </View>
@@ -469,5 +515,31 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  segmentColumn: {
+    flex: 1,
+  },
+  translationColumn: {
+    borderLeftWidth: 2,
+    paddingLeft: 12,
+  },
+  translationPending: {
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+  translationError: {
+    fontSize: 12,
+  },
+  translatingBadge: {
+    fontSize: 10,
+    fontWeight: "500",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
   },
 });

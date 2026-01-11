@@ -16,6 +16,16 @@ import type {
   RealtimeOptions,
 } from "@/packages/types/realtime-transcription";
 
+/**
+ * リアルタイム文字起こしのコールバック
+ */
+export interface RealtimeSessionCallbacks {
+  /** partial（途中結果）イベント時に呼ばれる */
+  onPartial?: (segment: TranscriptSegment) => void;
+  /** committed（確定結果）イベント時に呼ばれる */
+  onCommitted?: (segment: TranscriptSegment) => void;
+}
+
 // ネイティブプラットフォームでのみ expo-audio-stream をインポート
 let ExpoPlayAudioStream: any = null;
 if (Platform.OS !== "web") {
@@ -231,16 +241,23 @@ export function useRealtimeTranscription() {
     }
   }, [stopNativeAudioStreaming, stopWebAudioStreaming]);
 
+  // コールバック参照
+  const callbacksRef = useRef<RealtimeSessionCallbacks | null>(null);
+
   /**
    * セッションを開始
    *
    * @param recordingId - 録音ID
    * @param options - リアルタイム文字起こしオプション
+   * @param callbacks - イベントコールバック（翻訳連携用）
    */
   const startSession = useCallback(async (
     recordingId: string,
-    options: RealtimeOptions = {}
+    options: RealtimeOptions = {},
+    callbacks?: RealtimeSessionCallbacks
   ): Promise<void> => {
+    // コールバックを保存
+    callbacksRef.current = callbacks || null;
     console.log("[useRealtimeTranscription] Starting session for recording:", recordingId);
 
     // 既存セッションがある場合は終了
@@ -288,32 +305,43 @@ export function useRealtimeTranscription() {
         setState((prev) => {
           // 最後のセグメントがpartialの場合は更新、そうでなければ新規追加
           const lastSegment = prev.segments[prev.segments.length - 1];
+          let newSegment: TranscriptSegment;
 
           if (lastSegment?.isPartial) {
             // 最後のpartialセグメントを更新
+            newSegment = {
+              ...lastSegment,
+              text: data.text,
+              timestamp,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onPartial) {
+              setTimeout(() => callbacksRef.current?.onPartial?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments.slice(0, -1),
-                {
-                  ...lastSegment,
-                  text: data.text,
-                  timestamp,
-                },
+                newSegment,
               ],
             };
           } else {
             // 新しいpartialセグメントを追加
+            newSegment = {
+              id: generateSegmentId(),
+              text: data.text,
+              isPartial: true,
+              timestamp,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onPartial) {
+              setTimeout(() => callbacksRef.current?.onPartial?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments,
-                {
-                  id: generateSegmentId(),
-                  text: data.text,
-                  isPartial: true,
-                  timestamp,
-                },
+                newSegment,
               ],
             };
           }
@@ -328,32 +356,43 @@ export function useRealtimeTranscription() {
         setState((prev) => {
           // 最後のpartialセグメントをcommittedに変換、またはテキストが異なる場合は新規追加
           const lastSegment = prev.segments[prev.segments.length - 1];
+          let newSegment: TranscriptSegment;
 
           if (lastSegment?.isPartial && lastSegment.text === data.text) {
             // partialをcommittedに昇格
+            newSegment = {
+              ...lastSegment,
+              isPartial: false,
+              timestamp,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onCommitted) {
+              setTimeout(() => callbacksRef.current?.onCommitted?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments.slice(0, -1),
-                {
-                  ...lastSegment,
-                  isPartial: false,
-                  timestamp,
-                },
+                newSegment,
               ],
             };
           } else {
             // 新しいcommittedセグメントを追加
+            newSegment = {
+              id: generateSegmentId(),
+              text: data.text,
+              isPartial: false,
+              timestamp,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onCommitted) {
+              setTimeout(() => callbacksRef.current?.onCommitted?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments,
-                {
-                  id: generateSegmentId(),
-                  text: data.text,
-                  isPartial: false,
-                  timestamp,
-                },
+                newSegment,
               ],
             };
           }
@@ -373,50 +412,66 @@ export function useRealtimeTranscription() {
 
         setState((prev) => {
           const lastSegment = prev.segments[prev.segments.length - 1];
+          let newSegment: TranscriptSegment;
 
           // 最後のセグメントが同じテキストなら、話者情報を更新するだけ（二重追加を防ぐ）
           if (lastSegment && !lastSegment.isPartial && lastSegment.text === data.text) {
+            newSegment = {
+              ...lastSegment,
+              speaker: speakerId,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onCommitted) {
+              setTimeout(() => callbacksRef.current?.onCommitted?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments.slice(0, -1),
-                {
-                  ...lastSegment,
-                  speaker: speakerId,
-                },
+                newSegment,
               ],
             };
           }
 
           // 最後のpartialセグメントをcommittedに変換（話者情報付き）
           if (lastSegment?.isPartial) {
+            newSegment = {
+              ...lastSegment,
+              text: data.text,
+              isPartial: false,
+              timestamp,
+              speaker: speakerId,
+            };
+            // コールバック呼び出し（翻訳連携用）
+            if (callbacksRef.current?.onCommitted) {
+              setTimeout(() => callbacksRef.current?.onCommitted?.(newSegment), 0);
+            }
             return {
               ...prev,
               segments: [
                 ...prev.segments.slice(0, -1),
-                {
-                  ...lastSegment,
-                  text: data.text,
-                  isPartial: false,
-                  timestamp,
-                  speaker: speakerId,
-                },
+                newSegment,
               ],
             };
           }
 
           // 新しいcommittedセグメントを追加
+          newSegment = {
+            id: generateSegmentId(),
+            text: data.text,
+            isPartial: false,
+            timestamp,
+            speaker: speakerId,
+          };
+          // コールバック呼び出し（翻訳連携用）
+          if (callbacksRef.current?.onCommitted) {
+            setTimeout(() => callbacksRef.current?.onCommitted?.(newSegment), 0);
+          }
           return {
             ...prev,
             segments: [
               ...prev.segments,
-              {
-                id: generateSegmentId(),
-                text: data.text,
-                isPartial: false,
-                timestamp,
-                speaker: speakerId,
-              },
+              newSegment,
             ],
           };
         });

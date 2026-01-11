@@ -33,6 +33,10 @@ interface SettingsState {
     language: string;
     enableSpeakerDiarization: boolean;
   };
+  realtimeTranslation: {
+    enabled: boolean;
+    targetLanguage: string;
+  };
 }
 
 const LANGUAGES: { value: Language; label: string }[] = [
@@ -53,6 +57,11 @@ const TEMPLATES: { value: SummaryTemplate; label: string; description: string }[
   { value: "lecture", label: "講義", description: "主要概念・学習ポイント" },
 ];
 
+const TRANSLATION_LANGUAGES: { value: string; label: string }[] = [
+  { value: "ja", label: "日本語" },
+  { value: "en", label: "English (英語)" },
+];
+
 const SETTINGS_KEY = "app-settings";
 
 export default function SettingsScreen() {
@@ -70,6 +79,10 @@ export default function SettingsScreen() {
       language: "ja",
       enableSpeakerDiarization: true,
     },
+    realtimeTranslation: {
+      enabled: false,
+      targetLanguage: "ja",
+    },
   });
 
   // Load settings on mount
@@ -86,6 +99,10 @@ export default function SettingsScreen() {
             realtimeTranscription: {
               ...prev.realtimeTranscription,
               ...(savedSettings.realtimeTranscription || {}),
+            },
+            realtimeTranslation: {
+              ...prev.realtimeTranslation,
+              ...(savedSettings.realtimeTranslation || {}),
             },
           }));
         }
@@ -136,26 +153,39 @@ export default function SettingsScreen() {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleClearData = () => {
-    Alert.alert(
-      "データを削除",
-      "すべての録音データを削除しますか？この操作は取り消せません。",
-      [
-        { text: "キャンセル", style: "cancel" },
-        {
-          text: "削除",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              Alert.alert("完了", "すべてのデータが削除されました。アプリを再起動してください。");
-            } catch {
-              Alert.alert("エラー", "データの削除に失敗しました");
-            }
+  const handleClearData = async () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("すべての録音データを削除しますか？この操作は取り消せません。");
+      if (confirmed) {
+        try {
+          await AsyncStorage.clear();
+          window.alert("すべてのデータが削除されました。ページを再読み込みしてください。");
+          window.location.reload();
+        } catch {
+          window.alert("データの削除に失敗しました");
+        }
+      }
+    } else {
+      Alert.alert(
+        "データを削除",
+        "すべての録音データを削除しますか？この操作は取り消せません。",
+        [
+          { text: "キャンセル", style: "cancel" },
+          {
+            text: "削除",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await AsyncStorage.clear();
+                Alert.alert("完了", "すべてのデータが削除されました。アプリを再起動してください。");
+              } catch {
+                Alert.alert("エラー", "データの削除に失敗しました");
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const totalDuration = recordingsState.recordings.reduce((sum, r) => sum + r.duration, 0);
@@ -424,6 +454,102 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* Realtime Translation */}
+        {settings.realtimeTranscription.enabled && (
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              リアルタイム翻訳
+            </Text>
+            <View style={[styles.toggleRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.toggleContent}>
+                <Text style={[styles.toggleLabel, { color: colors.foreground }]}>
+                  翻訳を有効化
+                </Text>
+                <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                  文字起こし結果をリアルタイムで翻訳
+                </Text>
+              </View>
+              <Switch
+                value={settings.realtimeTranslation.enabled}
+                onValueChange={() => {
+                  if (Platform.OS !== "web") {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  setSettings((prev) => ({
+                    ...prev,
+                    realtimeTranslation: {
+                      ...prev.realtimeTranslation,
+                      enabled: !prev.realtimeTranslation.enabled,
+                    },
+                  }));
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            {settings.realtimeTranslation.enabled && (
+              <>
+                <Text style={[styles.optionLabel, { color: colors.muted, marginTop: 12, marginBottom: 8 }]}>
+                  翻訳先言語
+                </Text>
+                {TRANSLATION_LANGUAGES.map((lang) => (
+                  <TouchableOpacity
+                    key={lang.value}
+                    onPress={() => {
+                      if (Platform.OS !== "web") {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                      setSettings((prev) => ({
+                        ...prev,
+                        realtimeTranslation: {
+                          ...prev.realtimeTranslation,
+                          targetLanguage: lang.value,
+                        },
+                      }));
+                    }}
+                    style={[
+                      styles.templateItem,
+                      {
+                        backgroundColor:
+                          settings.realtimeTranslation.targetLanguage === lang.value
+                            ? colors.primary + "15"
+                            : "transparent",
+                        borderColor:
+                          settings.realtimeTranslation.targetLanguage === lang.value
+                            ? colors.primary
+                            : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.templateLabel,
+                        {
+                          color:
+                            settings.realtimeTranslation.targetLanguage === lang.value
+                              ? colors.primary
+                              : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {lang.label}
+                    </Text>
+                    {settings.realtimeTranslation.targetLanguage === lang.value && (
+                      <IconSymbol name="checkmark" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+                <View style={[styles.noteBox, { backgroundColor: colors.warning + "15" }]}>
+                  <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
+                  <Text style={[styles.noteText, { color: colors.warning }]}>
+                    リアルタイム翻訳はAPI使用量が増加します
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Data Management */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>データ管理</Text>
@@ -521,6 +647,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   optionText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  optionLabel: {
     fontSize: 14,
     fontWeight: "500",
   },

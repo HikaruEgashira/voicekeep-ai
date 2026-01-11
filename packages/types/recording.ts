@@ -11,6 +11,8 @@ export interface TranscriptSegment {
   startTime: number;
   endTime: number;
   speaker?: string;
+  /** 翻訳テキスト */
+  translatedText?: string;
 }
 
 export interface Transcript {
@@ -18,6 +20,11 @@ export interface Transcript {
   segments: TranscriptSegment[];
   language: string;
   processedAt: Date;
+  /** 翻訳情報 */
+  translation?: {
+    targetLanguage: string;
+    text: string;
+  };
 }
 
 export interface Summary {

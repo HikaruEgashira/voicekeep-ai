@@ -357,7 +357,7 @@ const handleSummarize = async () => {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.replace("/")}
+            onPress={() => router.back()}
             style={[styles.backButton, { backgroundColor: colors.surface }]}
           >
             <IconSymbol name="arrow.left" size={20} color={colors.foreground} />
@@ -497,9 +497,34 @@ const handleSummarize = async () => {
           {activeTab === "transcript" && (
             <View style={styles.transcriptTab}>
               {recording.transcript ? (
-                <Text style={[styles.transcriptText, { color: colors.foreground }]}>
-                  {recording.transcript.text}
-                </Text>
+                <View style={styles.transcriptContent}>
+                  {/* 翻訳がある場合は並列表示 */}
+                  {recording.transcript.translation ? (
+                    <>
+                      <View style={styles.transcriptSection}>
+                        <Text style={[styles.transcriptLabel, { color: colors.muted }]}>
+                          原文
+                        </Text>
+                        <Text style={[styles.transcriptText, { color: colors.foreground }]}>
+                          {recording.transcript.text}
+                        </Text>
+                      </View>
+                      <View style={[styles.transcriptDivider, { backgroundColor: colors.border }]} />
+                      <View style={styles.transcriptSection}>
+                        <Text style={[styles.transcriptLabel, { color: colors.muted }]}>
+                          翻訳 ({recording.transcript.translation.targetLanguage === 'ja' ? '日本語' : 'English'})
+                        </Text>
+                        <Text style={[styles.transcriptText, { color: colors.foreground }]}>
+                          {recording.transcript.translation.text}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={[styles.transcriptText, { color: colors.foreground }]}>
+                      {recording.transcript.text}
+                    </Text>
+                  )}
+                </View>
               ) : (
                 <View style={styles.emptyTab}>
                   <IconSymbol name="doc.text.fill" size={48} color={colors.muted} />
@@ -803,6 +828,23 @@ const styles = StyleSheet.create({
   },
   transcriptTab: {
     flex: 1,
+  },
+  transcriptContent: {
+    flex: 1,
+  },
+  transcriptSection: {
+    marginBottom: 16,
+  },
+  transcriptLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  transcriptDivider: {
+    height: 1,
+    marginVertical: 16,
   },
   transcriptText: {
     fontSize: 16,

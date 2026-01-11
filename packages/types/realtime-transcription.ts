@@ -108,3 +108,36 @@ export interface ErrorMessage extends RealtimeMessage {
   /** エラーメッセージ */
   message: string;
 }
+
+/**
+ * 翻訳ステータス
+ */
+export type TranslationStatus = 'pending' | 'completed' | 'error';
+
+/**
+ * 翻訳対応言語
+ */
+export type TargetLanguage = 'ja' | 'en';
+
+/**
+ * 翻訳設定
+ */
+export interface TranslationSettings {
+  enabled: boolean;
+  targetLanguage: TargetLanguage;
+}
+
+/**
+ * 翻訳リクエスト
+ */
+export interface TranslateRequest {
+  texts: Array<{ id: string; text: string }>;
+  targetLanguage: string;
+}
+
+/**
+ * 翻訳レスポンス
+ */
+export interface TranslateResponse {
+  translations: Array<{ id: string; translatedText: string }>;
+}

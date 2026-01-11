@@ -8,10 +8,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRecordings } from './recordings-context';
 import { useRealtimeTranscription } from '@/packages/hooks/use-realtime-transcription';
+import { useRealtimeTranslation } from '@/packages/hooks/use-realtime-translation';
 import { useAudioMetering } from '@/packages/hooks/use-audio-metering';
 import { useNativeMetering } from '@/packages/hooks/use-native-metering';
 import { useBackgroundRecording } from '@/packages/hooks/use-background-recording';
 import { Recording, Highlight } from '@/packages/types/recording';
+import type { TranslationStatus } from '@/packages/types/realtime-transcription';
 
 const RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -25,6 +27,8 @@ interface RecordingSessionState {
   highlights: Highlight[];
   hasPermission: boolean | null;
   realtimeEnabled: boolean;
+  translationEnabled: boolean;
+  translationTargetLanguage: string;
   currentRecordingId: string | null;
   justCompleted: boolean;
   metering: number;
@@ -36,6 +40,9 @@ interface RecordingSessionContextValue {
   pulseAnim: Animated.Value;
   realtimeState: ReturnType<typeof useRealtimeTranscription>['state'];
   mergedSegments: ReturnType<typeof useRealtimeTranscription>['mergedSegments'];
+  getTranslation: (segmentId: string) => string | undefined;
+  getTranslationStatus: (segmentId: string) => TranslationStatus | undefined;
+  isTranslating: boolean;
   startRecording: () => Promise<void>;
   pauseResume: () => Promise<void>;
   stopRecording: () => Promise<void>;
@@ -56,6 +63,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [realtimeEnabled, setRealtimeEnabled] = useState(false);
+  const [translationEnabled, setTranslationEnabled] = useState(false);
+  const [translationTargetLanguage, setTranslationTargetLanguage] = useState('ja');
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
 
@@ -75,6 +84,22 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     mergedSegments,
     soundLevel: realtimeSoundLevel,
   } = useRealtimeTranscription();
+
+  // 翻訳フック
+  // Note: enabled から isRecording を削除。isRecording を含めると、startRecording 時に
+  // コールバックが作成された時点で enabled=false となり、翻訳が動作しない。
+  // コールバックの有無は startRealtimeSession 呼び出し時に制御する。
+  const {
+    translatePartial,
+    translateCommitted,
+    getTranslation,
+    getTranslationStatus,
+    clearCache: clearTranslationCache,
+    isTranslating,
+  } = useRealtimeTranslation({
+    enabled: translationEnabled && realtimeEnabled,
+    targetLanguage: translationTargetLanguage,
+  });
 
   // Web: use Web Audio API via useAudioMetering hook
   // Native (Android/iOS): use expo-audio-stream's soundLevel for metering
@@ -113,9 +138,17 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     const loadSettings = async () => {
       try {
         const saved = await AsyncStorage.getItem('app-settings');
+        console.log('[RecordingSession] Loaded settings:', saved);
         if (saved) {
           const settings = JSON.parse(saved);
+          console.log('[RecordingSession] Parsed settings:', {
+            realtimeEnabled: settings.realtimeTranscription?.enabled,
+            translationEnabled: settings.realtimeTranslation?.enabled,
+            targetLanguage: settings.realtimeTranslation?.targetLanguage,
+          });
           setRealtimeEnabled(settings.realtimeTranscription?.enabled || false);
+          setTranslationEnabled(settings.realtimeTranslation?.enabled || false);
+          setTranslationTargetLanguage(settings.realtimeTranslation?.targetLanguage || 'ja');
         }
       } catch (error) {
         console.error('Failed to load settings:', error);
@@ -242,9 +275,24 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       const recordingId = Date.now().toString();
       setCurrentRecordingId(recordingId);
 
+      console.log('[RecordingSession] Starting recording with settings:', {
+        realtimeEnabled,
+        translationEnabled,
+        translationTargetLanguage,
+      });
       if (realtimeEnabled) {
         try {
-          await startRealtimeSession(recordingId);
+          // 翻訳キャッシュをクリア
+          if (translationEnabled) {
+            console.log('[RecordingSession] Clearing translation cache');
+            clearTranslationCache();
+          }
+          // 翻訳コールバックを渡してリアルタイムセッション開始
+          console.log('[RecordingSession] Starting realtime session with translation:', translationEnabled);
+          await startRealtimeSession(recordingId, {}, {
+            onPartial: translationEnabled ? translatePartial : undefined,
+            onCommitted: translationEnabled ? translateCommitted : undefined,
+          });
           console.log('Realtime transcription session started');
         } catch (error) {
           console.error('Failed to start realtime session:', error);
@@ -256,7 +304,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       isStartingRef.current = false;
       Alert.alert('エラー', '録音を開始できませんでした');
     }
-  }, [audioRecorder, realtimeEnabled, startRealtimeSession, isRecording]);
+  }, [audioRecorder, realtimeEnabled, translationEnabled, startRealtimeSession, translatePartial, translateCommitted, clearTranslationCache, isRecording]);
 
   const pauseResume = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -387,6 +435,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
         const realtimeText = consolidateSegments();
         if (realtimeText.trim()) {
           console.log('Saving realtime transcription result:', realtimeText.substring(0, 100));
+
+          // 翻訳テキストを含めてセグメントを作成
           const transcriptSegments = realtimeState.segments
             .filter((s) => !s.isPartial)
             .map((s) => ({
@@ -394,12 +444,30 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
               startTime: s.timestamp,
               endTime: s.timestamp,
               speaker: s.speaker,
+              translatedText: translationEnabled ? getTranslation(s.id) : undefined,
             }));
+
+          // 翻訳全文を生成
+          let translationData: { targetLanguage: string; text: string } | undefined;
+          if (translationEnabled) {
+            const translatedTexts = transcriptSegments
+              .map((s) => s.translatedText)
+              .filter(Boolean);
+            if (translatedTexts.length > 0) {
+              translationData = {
+                targetLanguage: translationTargetLanguage,
+                text: translatedTexts.join('\n'),
+              };
+              console.log('Saving translation result:', translationData.text.substring(0, 100));
+            }
+          }
+
           await setTranscript(recordingId, {
             text: realtimeText,
             segments: transcriptSegments,
             language: 'ja',
             processedAt: now,
+            translation: translationData,
           });
         }
       }
@@ -416,7 +484,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       Alert.alert('エラー', '録音の保存に失敗しました');
       isStartingRef.current = false;
     }
-  }, [audioRecorder, duration, highlights, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript]);
+  }, [audioRecorder, duration, highlights, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript, translationEnabled, getTranslation, translationTargetLanguage]);
 
   const cancelRecording = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -478,6 +546,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     highlights,
     hasPermission,
     realtimeEnabled,
+    translationEnabled,
+    translationTargetLanguage,
     currentRecordingId,
     justCompleted,
     metering,
@@ -491,6 +561,9 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
         pulseAnim,
         realtimeState,
         mergedSegments,
+        getTranslation,
+        getTranslationStatus,
+        isTranslating,
         startRecording,
         pauseResume,
         stopRecording,
@@ -512,6 +585,8 @@ const defaultState: RecordingSessionState = {
   highlights: [],
   hasPermission: null,
   realtimeEnabled: false,
+  translationEnabled: false,
+  translationTargetLanguage: 'ja',
   currentRecordingId: null,
   justCompleted: false,
   metering: -160,
@@ -523,6 +598,9 @@ const defaultValue: RecordingSessionContextValue = {
   pulseAnim: new Animated.Value(1),
   realtimeState: { isActive: false, segments: [], connectionStatus: 'disconnected', error: undefined },
   mergedSegments: [],
+  getTranslation: () => undefined,
+  getTranslationStatus: () => undefined,
+  isTranslating: false,
   startRecording: async () => {},
   pauseResume: async () => {},
   stopRecording: async () => {},

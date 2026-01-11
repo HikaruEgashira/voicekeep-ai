@@ -269,6 +269,71 @@ ${input.transcriptText}`,
           throw new Error(`トークンの生成に失敗しました: ${errorMessage}`);
         }
       }),
+
+    // Realtime translation endpoint
+    translate: publicProcedure
+      .input(z.object({
+        texts: z.array(z.object({
+          id: z.string(),
+          text: z.string(),
+        })),
+        targetLanguage: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        console.log("[TRPC] translate mutation called");
+        console.log("[TRPC] target language:", input.targetLanguage);
+        console.log("[TRPC] texts count:", input.texts.length);
+
+        const languageNames: Record<string, string> = {
+          en: "English",
+          zh: "Chinese",
+          ko: "Korean",
+          es: "Spanish",
+          fr: "French",
+          de: "German",
+          ja: "Japanese",
+        };
+
+        const targetLangName = languageNames[input.targetLanguage] || input.targetLanguage;
+
+        try {
+          // バッチ処理: 複数テキストを一度に翻訳
+          const textsToTranslate = input.texts.map(t => t.text).join("\n---SEPARATOR---\n");
+
+          const result = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `You are a translator. Translate the following texts to ${targetLangName}.
+Each text is separated by "---SEPARATOR---".
+Output only the translations in the same order, separated by "---SEPARATOR---".
+Maintain the original tone and nuance. Do not add any explanation.`,
+              },
+              {
+                role: "user",
+                content: textsToTranslate,
+              },
+            ],
+            maxTokens: 2000,
+          });
+
+          const content = result.choices[0]?.message?.content;
+          const translatedTexts = typeof content === "string"
+            ? content.split("---SEPARATOR---").map(t => t.trim())
+            : [];
+
+          return {
+            translations: input.texts.map((t, i) => ({
+              id: t.id,
+              translatedText: translatedTexts[i] || "",
+            })),
+          };
+        } catch (error) {
+          console.error("[TRPC] Translation error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          throw new Error(`翻訳に失敗しました: ${errorMessage}`);
+        }
+      }),
   }),
 });
 
