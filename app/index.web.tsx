@@ -123,7 +123,7 @@ function Button({
         variant === "default" &&
           "bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90",
         variant === "outline" &&
-          "border border-border bg-background hover:bg-surface",
+          "border border-border bg-background hover:bg-surface text-foreground",
         size === "default" && "h-10 px-4 py-2",
         size === "lg" && "h-12 px-8 text-base",
         className
@@ -179,10 +179,10 @@ function VoiceMemoLanding() {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-background">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3" />
+    <div className="relative min-h-screen w-full bg-background overflow-y-auto" style={{ height: '100vh' }}>
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3 pointer-events-none" />
 
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ElegantShape
           delay={0.3}
           width={500}

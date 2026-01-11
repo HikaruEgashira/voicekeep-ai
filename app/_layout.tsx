@@ -52,8 +52,8 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const segments = useSegments();
-  // ウェブのランディングページ（/ または /website）では録音機能をスキップ
-  const isWebLanding = Platform.OS === "web" && (segments.length === 0 || segments[0] === "website");
+  // ウェブのランディングページ（/）では録音機能をスキップ
+  const isWebLanding = Platform.OS === "web" && segments.length === 0;
 
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
@@ -97,7 +97,6 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="(tabs)" options={{ lazy: true }} />
       <Stack.Screen name="note/[id]" options={{ presentation: "card", lazy: true }} />
-      <Stack.Screen name="website" options={{ lazy: true }} />
     </Stack>
   );
 
