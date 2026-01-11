@@ -97,8 +97,13 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     loadSettings();
   }, []);
 
-  // Request microphone permission
+  // Request microphone permission (skip on web - permission will be requested on first recording)
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Web: マイク許可は録音開始時にブラウザが自動的に求める
+      setHasPermission(null);
+      return;
+    }
     (async () => {
       await setAudioModeAsync({
         playsInSilentMode: true,
