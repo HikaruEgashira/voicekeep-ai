@@ -1,6 +1,6 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -19,7 +19,29 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/packages/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/packages/lib/_core/manus-runtime";
 import { RecordingsProvider } from "@/packages/lib/recordings-context";
-import { RecordingSessionProvider } from "@/packages/lib/recording-session-context";
+
+function AppProviders({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+  );
+  const [trpcClient] = useState(() => createTRPCClient());
+
+  return (
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <RecordingsProvider>{children}</RecordingsProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
+  );
+}
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -29,6 +51,9 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const segments = useSegments();
+  const isWebsite = segments[0] === "website";
+
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
@@ -37,8 +62,10 @@ export default function RootLayout() {
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
-    initManusRuntime();
-  }, []);
+    if (!isWebsite) {
+      initManusRuntime();
+    }
+  }, [isWebsite]);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
     setInsets(metrics.insets);
@@ -46,26 +73,10 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== "web" || isWebsite) return;
     const unsubscribe = subscribeSafeAreaInsets(handleSafeAreaUpdate);
     return () => unsubscribe();
-  }, [handleSafeAreaUpdate]);
-
-  // Create clients once and reuse them
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            // Disable automatic refetching on window focus for mobile
-            refetchOnWindowFocus: false,
-            // Retry failed requests once
-            retry: 1,
-          },
-        },
-      }),
-  );
-  const [trpcClient] = useState(() => createTRPCClient());
+  }, [handleSafeAreaUpdate, isWebsite]);
 
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
@@ -80,21 +91,21 @@ export default function RootLayout() {
     };
   }, [initialInsets, initialFrame]);
 
+  const stack = (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="note/[id]" options={{ presentation: "card" }} />
+      <Stack.Screen name="website" />
+    </Stack>
+  );
+
+  // All routes need AppProviders because Expo Router preloads all routes
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <RecordingsProvider>
-            <RecordingSessionProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="note/[id]" options={{ presentation: 'card' }} />
-              </Stack>
-              <StatusBar style="auto" />
-            </RecordingSessionProvider>
-          </RecordingsProvider>
-        </QueryClientProvider>
-      </trpc.Provider>
+      <AppProviders>
+        {stack}
+        <StatusBar style={isWebsite ? "dark" : "auto"} />
+      </AppProviders>
     </GestureHandlerRootView>
   );
 

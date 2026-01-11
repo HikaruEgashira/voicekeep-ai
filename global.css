@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #6366F1;
+    --color-secondary: #8B5CF6;
+    --color-background: #FFFFFF;
+    --color-surface: #F8FAFC;
+    --color-foreground: #0F172A;
+    --color-muted: #64748B;
+    --color-border: #E2E8F0;
+    --color-success: #22C55E;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+    --color-recording: #22C55E;
+    --color-highlight: #F59E0B;
+  }
+
+  .dark, [data-theme="dark"] {
+    --color-primary: #818CF8;
+    --color-secondary: #A78BFA;
+    --color-background: #0F172A;
+    --color-surface: #1E293B;
+    --color-foreground: #F8FAFC;
+    --color-muted: #94A3B8;
+    --color-border: #334155;
+    --color-success: #4ADE80;
+    --color-warning: #FBBF24;
+    --color-error: #F87171;
+    --color-recording: #4ADE80;
+    --color-highlight: #FBBF24;
+  }
+}
