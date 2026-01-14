@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mic, Zap, Shield } from "lucide-react";
+import { Mic, Zap, Shield, Github } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/packages/lib/cn";
 
@@ -228,13 +228,21 @@ function VoiceMemoLanding() {
                 Features
               </a>
               <a
-                href="https://github.com/HikaruEgashira/pleno-transcribe/releases"
+                href="https://github.com/HikaruEgashira/pleno-live/releases"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <Button variant="outline" size="default">
                   Download App
                 </Button>
+              </a>
+              <a
+                href="https://github.com/HikaruEgashira/pleno-live"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted hover:text-foreground transition-colors"
+              >
+                <Github className="w-6 h-6" />
               </a>
             </div>
           </nav>
@@ -286,12 +294,12 @@ function VoiceMemoLanding() {
                 animate="visible"
                 className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
               >
-                <a href="https://github.com/HikaruEgashira/pleno-transcribe/releases">
+                <a href="https://github.com/HikaruEgashira/pleno-live/releases">
                   <Button size="lg">Download App</Button>
                 </a>
-                <a href="https://github.com/HikaruEgashira/pleno-transcribe">
+                <a href="/record">
                   <Button size="lg" variant="outline">
-                    View on GitHub
+                    ブラウザで使う
                   </Button>
                 </a>
               </motion.div>
@@ -402,10 +410,10 @@ function VoiceMemoLanding() {
               アプリをダウンロードして、声をナレッジに変換しましょう
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a href="https://github.com/HikaruEgashira/pleno-transcribe/releases">
+              <a href="https://github.com/HikaruEgashira/pleno-live/releases">
                 <Button size="lg">Download Now</Button>
               </a>
-              <a href="https://github.com/HikaruEgashira/pleno-transcribe">
+              <a href="https://github.com/HikaruEgashira/pleno-live">
                 <Button size="lg" variant="outline">
                   Star on GitHub
                 </Button>
@@ -427,7 +435,7 @@ function VoiceMemoLanding() {
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted">
               <a
-                href="https://github.com/HikaruEgashira/pleno-transcribe"
+                href="https://github.com/HikaruEgashira/pleno-live"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"

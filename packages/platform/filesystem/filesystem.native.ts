@@ -1,0 +1,59 @@
+/**
+ * Native (iOS/Android) FileSystem Implementation
+ * expo-file-system をラップして統一インターフェースを提供
+ */
+
+import * as ExpoFileSystem from 'expo-file-system/legacy';
+import type { PlatformFileSystem } from './index';
+
+export const FileSystem: PlatformFileSystem = {
+  get documentDirectory(): string | null {
+    return ExpoFileSystem.documentDirectory;
+  },
+
+  async readAsBase64(uri: string): Promise<string> {
+    return ExpoFileSystem.readAsStringAsync(uri, {
+      encoding: ExpoFileSystem.EncodingType.Base64,
+    });
+  },
+
+  async writeAsBase64(uri: string, base64: string): Promise<void> {
+    await ExpoFileSystem.writeAsStringAsync(uri, base64, {
+      encoding: ExpoFileSystem.EncodingType.Base64,
+    });
+  },
+
+  async moveAsync(from: string, to: string): Promise<void> {
+    await ExpoFileSystem.moveAsync({ from, to });
+  },
+
+  async makeDirectoryAsync(path: string, options?: { intermediates?: boolean }): Promise<void> {
+    await ExpoFileSystem.makeDirectoryAsync(path, options);
+  },
+
+  async getInfoAsync(uri: string): Promise<{ exists: boolean; size?: number }> {
+    const info = await ExpoFileSystem.getInfoAsync(uri);
+    return {
+      exists: info.exists,
+      size: info.exists ? info.size : undefined,
+    };
+  },
+
+  async deleteAsync(uri: string): Promise<void> {
+    await ExpoFileSystem.deleteAsync(uri, { idempotent: true });
+  },
+
+  async blobToBase64(_blob: Blob): Promise<string> {
+    // Native では通常使用しないが、互換性のために実装
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1] || '';
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(_blob);
+    });
+  },
+};

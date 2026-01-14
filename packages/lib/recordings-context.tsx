@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Storage } from '@/packages/platform';
 import { Recording, Highlight, Transcript, Summary, QAMessage } from '@/packages/types/recording';
 import type { TranscriptSegment as RealtimeTranscriptSegment } from '@/packages/types/realtime-transcription';
 
@@ -146,7 +146,7 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
   const loadRecordings = async () => {
     const startTime = Date.now();
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await Storage.getItem(STORAGE_KEY);
       if (stored) {
         // パフォーマンス最適化: JSON.parseを先に実行し、日付変換は遅延実行
         const parsed = JSON.parse(stored);
@@ -205,9 +205,9 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
       const recordingsToSave = recordings.map(({ realtimeTranscript, ...rest }) => rest);
       const data = JSON.stringify(recordingsToSave);
       const sizeKB = Math.round(data.length / 1024);
-      console.log(`Saving recordings to AsyncStorage: ${recordings.length} items, ${sizeKB}KB`);
+      console.log(`Saving recordings to Storage: ${recordings.length} items, ${sizeKB}KB`);
 
-      await AsyncStorage.setItem(STORAGE_KEY, data);
+      await Storage.setItem(STORAGE_KEY, data);
       console.log('Recordings saved successfully');
     } catch (error) {
       if (error instanceof Error && error.name === 'QuotaExceededError') {

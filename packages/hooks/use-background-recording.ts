@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react";
-import { AppState, AppStateStatus, Platform } from "react-native";
-import {
-  startBackgroundRecordingTask,
-  stopBackgroundRecordingTask,
-} from "@/packages/lib/background-recording-task";
+import { AppState, AppStateStatus } from "react-native";
+import { BackgroundTask } from "@/packages/platform";
 
 /**
  * バックグラウンド録音を管理するフック
@@ -17,8 +14,8 @@ export function useBackgroundRecording(isRecording: boolean): void {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    if (Platform.OS === "web") {
-      // Web版はバックグラウンド録音非対応
+    // BackgroundTask がサポートされていない場合（Web）は何もしない
+    if (!BackgroundTask.isSupported()) {
       return;
     }
 
@@ -37,14 +34,14 @@ export function useBackgroundRecording(isRecording: boolean): void {
         ) {
           // アプリがバックグラウンドに移行
           console.log("[useBackgroundRecording] App moved to background while recording");
-          await startBackgroundRecordingTask();
+          await BackgroundTask.start();
         } else if (
           (appState.current === "background" || appState.current === "inactive") &&
           nextAppState === "active"
         ) {
           // アプリがフォアグラウンドに復帰
           console.log("[useBackgroundRecording] App returned to foreground");
-          await stopBackgroundRecordingTask();
+          await BackgroundTask.stop();
         }
       }
 
@@ -60,8 +57,8 @@ export function useBackgroundRecording(isRecording: boolean): void {
 
   // 録音が停止された場合、バックグラウンドタスクも停止
   useEffect(() => {
-    if (!isRecording) {
-      stopBackgroundRecordingTask();
+    if (!isRecording && BackgroundTask.isSupported()) {
+      BackgroundTask.stop();
     }
   }, [isRecording]);
 }

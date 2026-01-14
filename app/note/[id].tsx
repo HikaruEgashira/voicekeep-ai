@@ -12,10 +12,9 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
-import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ScreenContainer } from "@/packages/components/screen-container";
+import { Haptics, Storage, FileSystem } from "@/packages/platform";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
 import { useRecordings } from "@/packages/lib/recordings-context";
 import { useColors } from "@/packages/hooks/use-colors";
@@ -51,7 +50,7 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     const loadProvider = async () => {
       try {
-        const saved = await AsyncStorage.getItem("app-settings");
+        const saved = await Storage.getItem("app-settings");
         if (saved) {
           const settings = JSON.parse(saved);
           if (settings.transcriptionProvider) {
@@ -76,7 +75,7 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     const autoSummarize = async () => {
       try {
-        const saved = await AsyncStorage.getItem("app-settings");
+        const saved = await Storage.getItem("app-settings");
         if (saved) {
           const settings = JSON.parse(saved);
           // Auto summarize if enabled, transcription exists, and summary doesn't exist yet
@@ -121,9 +120,7 @@ export default function NoteDetailScreen() {
   }, [player, isPlaying]);
 
   const handlePlayPause = useCallback(() => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impact('light');
     if (isPlaying) {
       player.pause();
     } else {
@@ -200,9 +197,6 @@ export default function NoteDetailScreen() {
           }
         } else {
           // Handle native platforms (iOS/Android)
-          // Import FileSystem dynamically for native platforms
-          const FileSystem = await import("expo-file-system/legacy");
-
           if (recording.audioUri.startsWith("file://") || !recording.audioUri.startsWith("http")) {
             console.log("[Transcribe] Reading local file as base64...");
 
@@ -215,9 +209,7 @@ export default function NoteDetailScreen() {
             }
 
             // Read local file as base64
-            const base64Data = await FileSystem.readAsStringAsync(recording.audioUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
+            const base64Data = await FileSystem.readAsBase64(recording.audioUri);
 
             console.log("[Transcribe] Base64 data length:", base64Data.length);
             audioBase64 = base64Data;

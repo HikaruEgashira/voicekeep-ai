@@ -9,11 +9,10 @@ import {
   Switch,
   Platform,
 } from "react-native";
-import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 import { ScreenContainer } from "@/packages/components/screen-container";
+import { Haptics, Storage } from "@/packages/platform";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
 import { useRecordings } from "@/packages/lib/recordings-context";
 import { useColors } from "@/packages/hooks/use-colors";
@@ -89,7 +88,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const saved = await AsyncStorage.getItem(SETTINGS_KEY);
+        const saved = await Storage.getItem(SETTINGS_KEY);
         if (saved) {
           const savedSettings = JSON.parse(saved);
           // Merge with default settings to handle missing fields
@@ -117,7 +116,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     const saveSettings = async () => {
       try {
-        await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        await Storage.setItem(SETTINGS_KEY, JSON.stringify(settings));
       } catch (error) {
         console.error("Failed to save settings:", error);
       }
@@ -126,30 +125,22 @@ export default function SettingsScreen() {
   }, [settings]);
 
   const handleLanguageChange = (language: Language) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impact('light');
     setSettings((prev) => ({ ...prev, language }));
   };
 
   const handleTemplateChange = (template: SummaryTemplate) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impact('light');
     setSettings((prev) => ({ ...prev, summaryTemplate: template }));
   };
 
   const handleProviderChange = (provider: TranscriptionProvider) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impact('light');
     setSettings((prev) => ({ ...prev, transcriptionProvider: provider }));
   };
 
   const handleToggle = (key: "autoTranscribe" | "autoSummarize") => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impact('light');
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -158,7 +149,7 @@ export default function SettingsScreen() {
       const confirmed = window.confirm("すべての録音データを削除しますか？この操作は取り消せません。");
       if (confirmed) {
         try {
-          await AsyncStorage.clear();
+          await Storage.clear();
           window.alert("すべてのデータが削除されました。ページを再読み込みしてください。");
           window.location.reload();
         } catch {
@@ -176,7 +167,7 @@ export default function SettingsScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await AsyncStorage.clear();
+                await Storage.clear();
                 Alert.alert("完了", "すべてのデータが削除されました。アプリを再起動してください。");
               } catch {
                 Alert.alert("エラー", "データの削除に失敗しました");
@@ -401,9 +392,7 @@ export default function SettingsScreen() {
             <Switch
               value={settings.realtimeTranscription.enabled}
               onValueChange={() => {
-                if (Platform.OS !== "web") {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
+                Haptics.impact('light');
                 setSettings((prev) => ({
                   ...prev,
                   realtimeTranscription: {
@@ -428,9 +417,7 @@ export default function SettingsScreen() {
                 <Switch
                   value={settings.realtimeTranscription.enableSpeakerDiarization}
                   onValueChange={() => {
-                    if (Platform.OS !== "web") {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
+                    Haptics.impact('light');
                     setSettings((prev) => ({
                       ...prev,
                       realtimeTranscription: {
@@ -472,9 +459,7 @@ export default function SettingsScreen() {
               <Switch
                 value={settings.realtimeTranslation.enabled}
                 onValueChange={() => {
-                  if (Platform.OS !== "web") {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
+                  Haptics.impact('light');
                   setSettings((prev) => ({
                     ...prev,
                     realtimeTranslation: {
@@ -496,9 +481,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     key={lang.value}
                     onPress={() => {
-                      if (Platform.OS !== "web") {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }
+                      Haptics.impact('light');
                       setSettings((prev) => ({
                         ...prev,
                         realtimeTranslation: {

@@ -1,0 +1,86 @@
+/**
+ * Web FileSystem Implementation
+ * Web では Blob API と Data URI を使用
+ */
+
+import type { PlatformFileSystem } from './index';
+
+// Web版のファイルストレージ（メモリ内）
+const fileStorage = new Map<string, string>();
+
+export const FileSystem: PlatformFileSystem = {
+  get documentDirectory(): string | null {
+    // Web では仮想的なディレクトリパスを返す
+    return 'web-storage://';
+  },
+
+  async readAsBase64(uri: string): Promise<string> {
+    // Data URI の場合
+    if (uri.startsWith('data:')) {
+      const base64 = uri.split(',')[1];
+      return base64 || '';
+    }
+
+    // メモリストレージから取得
+    const data = fileStorage.get(uri);
+    if (data) {
+      return data;
+    }
+
+    // Blob URL の場合
+    if (uri.startsWith('blob:')) {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return this.blobToBase64(blob);
+    }
+
+    throw new Error(`File not found: ${uri}`);
+  },
+
+  async writeAsBase64(uri: string, base64: string): Promise<void> {
+    fileStorage.set(uri, base64);
+  },
+
+  async moveAsync(from: string, to: string): Promise<void> {
+    const data = fileStorage.get(from);
+    if (data) {
+      fileStorage.set(to, data);
+      fileStorage.delete(from);
+    }
+  },
+
+  async makeDirectoryAsync(_path: string, _options?: { intermediates?: boolean }): Promise<void> {
+    // Web ではディレクトリ作成は不要
+  },
+
+  async getInfoAsync(uri: string): Promise<{ exists: boolean; size?: number }> {
+    if (uri.startsWith('data:')) {
+      const base64 = uri.split(',')[1] || '';
+      return { exists: true, size: base64.length };
+    }
+
+    const data = fileStorage.get(uri);
+    if (data) {
+      return { exists: true, size: data.length };
+    }
+
+    return { exists: false };
+  },
+
+  async deleteAsync(uri: string): Promise<void> {
+    fileStorage.delete(uri);
+  },
+
+  async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1] || '';
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
+};

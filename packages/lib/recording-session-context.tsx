@@ -1,19 +1,15 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { Platform, Alert, Animated } from 'react-native';
+import { Alert, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAudioRecorder, useAudioRecorderState, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAudioRecorder, useAudioRecorderState, RecordingPresets } from 'expo-audio';
 
 import { useRecordings } from './recordings-context';
 import { useRealtimeTranscription } from '@/packages/hooks/use-realtime-transcription';
 import { useRealtimeTranslation } from '@/packages/hooks/use-realtime-translation';
-import { useAudioMetering } from '@/packages/hooks/use-audio-metering';
-import { useNativeMetering } from '@/packages/hooks/use-native-metering';
 import { useBackgroundRecording } from '@/packages/hooks/use-background-recording';
 import { Recording, Highlight } from '@/packages/types/recording';
 import type { TranslationStatus } from '@/packages/types/realtime-transcription';
+import { Storage, Haptics, FileSystem, Permissions, createAudioMetering, type AudioMeteringController } from '@/packages/platform';
 
 const RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -67,10 +63,12 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const [translationTargetLanguage, setTranslationTargetLanguage] = useState('ja');
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
+  const [metering, setMetering] = useState(-160);
 
   const isStartingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const audioMeteringRef = useRef<AudioMeteringController | null>(null);
 
   const audioRecorder = useAudioRecorder(RECORDING_OPTIONS);
   const [meteringHistory, setMeteringHistory] = useState<number[]>([]);
@@ -86,9 +84,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   } = useRealtimeTranscription();
 
   // 翻訳フック
-  // Note: enabled から isRecording を削除。isRecording を含めると、startRecording 時に
-  // コールバックが作成された時点で enabled=false となり、翻訳が動作しない。
-  // コールバックの有無は startRealtimeSession 呼び出し時に制御する。
   const {
     translatePartial,
     translateCommitted,
@@ -101,34 +96,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     targetLanguage: translationTargetLanguage,
   });
 
-  // Web: use Web Audio API via useAudioMetering hook
-  // Native (Android/iOS): use expo-audio-stream's soundLevel for metering
-  // Note: expo-audio's metering doesn't work reliably on Android
-  const webMetering = useAudioMetering(isRecording && !isPaused);
-  const recorderState = useAudioRecorderState(audioRecorder, 100);
-
-  // ネイティブメータリング（リアルタイム転写が無効の場合のみ使用）
-  // 注意: expo-audio と expo-audio-stream は同時に使用できないため、
-  // リアルタイム転写が有効な場合は soundLevel を使用
-  const shouldUseNativeMetering = Platform.OS !== 'web' && !realtimeEnabled && isRecording && !isPaused;
-  const nativeMetering = useNativeMetering(shouldUseNativeMetering);
-
-  // メータリング値の決定:
-  // - Web: useAudioMetering
-  // - Native + リアルタイム有効: realtimeSoundLevel から変換
-  // - Native + リアルタイム無効: useNativeMetering
-  const metering = (() => {
-    if (Platform.OS === 'web') {
-      return webMetering;
-    }
-    if (realtimeEnabled && isRecording) {
-      // soundLevel (0〜1) を dB に変換
-      const db = realtimeSoundLevel > 0 ? 20 * Math.log10(realtimeSoundLevel) : -60;
-      return Math.max(-60, Math.min(0, db));
-    }
-    // ネイティブメータリングを使用
-    return nativeMetering;
-  })();
+  useAudioRecorderState(audioRecorder, 100);
 
   // Enable background recording for iOS/Android
   useBackgroundRecording(isRecording);
@@ -137,7 +105,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const saved = await AsyncStorage.getItem('app-settings');
+        const saved = await Storage.getItem('app-settings');
         console.log('[RecordingSession] Loaded settings:', saved);
         if (saved) {
           const settings = JSON.parse(saved);
@@ -157,24 +125,49 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     loadSettings();
   }, []);
 
-  // Request microphone permission (skip on web - permission will be requested on first recording)
+  // Request microphone permission
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Web: マイク許可は録音開始時にブラウザが自動的に求めるので、trueとして扱う
-      setHasPermission(true);
-      return;
-    }
     (async () => {
-      await setAudioModeAsync({
-        playsInSilentMode: true,
-        allowsRecording: true,
-        shouldPlayInBackground: true,
-        allowsBackgroundRecording: true,
-      });
-      const status = await AudioModule.requestRecordingPermissionsAsync();
-      setHasPermission(status.granted);
+      const status = await Permissions.requestMicrophonePermission();
+      setHasPermission(status === 'granted');
     })();
   }, []);
+
+  // Audio metering effect
+  useEffect(() => {
+    // リアルタイムが有効な場合はsoundLevelを使用
+    if (realtimeEnabled && isRecording) {
+      const db = realtimeSoundLevel > 0 ? 20 * Math.log10(realtimeSoundLevel) : -60;
+      setMetering(Math.max(-60, Math.min(0, db)));
+      return;
+    }
+
+    // 通常のメータリング
+    if (isRecording && !isPaused && !realtimeEnabled) {
+      if (!audioMeteringRef.current) {
+        audioMeteringRef.current = createAudioMetering();
+        audioMeteringRef.current.onMeteringUpdate((db) => {
+          setMetering(db);
+        });
+      }
+      audioMeteringRef.current.start().catch(console.error);
+    } else {
+      if (audioMeteringRef.current) {
+        audioMeteringRef.current.stop();
+        audioMeteringRef.current = null;
+      }
+      if (!isRecording) {
+        setMetering(-160);
+      }
+    }
+
+    return () => {
+      if (audioMeteringRef.current) {
+        audioMeteringRef.current.stop();
+        audioMeteringRef.current = null;
+      }
+    };
+  }, [isRecording, isPaused, realtimeEnabled, realtimeSoundLevel]);
 
   // Timer for duration
   useEffect(() => {
@@ -196,7 +189,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   }, [isRecording, isPaused]);
 
   // Update metering history with memory limit
-  // 長時間録音でもメモリ使用量を制限（最大10分 = 6000サンプル @ 100ms）
   const MAX_FULL_HISTORY_SIZE = 6000;
 
   useEffect(() => {
@@ -206,9 +198,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
         return newHistory.slice(-50);
       });
       setFullMeteringHistory((prev) => {
-        // メモリ制限: 最大サイズを超えたら間引き（ダウンサンプリング）
         if (prev.length >= MAX_FULL_HISTORY_SIZE) {
-          // 2サンプルを1サンプルに圧縮して半分にする
           const downsampled = [];
           for (let i = 0; i < prev.length - 1; i += 2) {
             downsampled.push((prev[i] + prev[i + 1]) / 2);
@@ -258,9 +248,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     }
     isStartingRef.current = true;
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    await Haptics.impact('medium');
 
     try {
       await audioRecorder.prepareToRecordAsync();
@@ -282,12 +270,10 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       });
       if (realtimeEnabled) {
         try {
-          // 翻訳キャッシュをクリア
           if (translationEnabled) {
             console.log('[RecordingSession] Clearing translation cache');
             clearTranslationCache();
           }
-          // 翻訳コールバックを渡してリアルタイムセッション開始
           console.log('[RecordingSession] Starting realtime session with translation:', translationEnabled);
           await startRealtimeSession(recordingId, {}, {
             onPartial: translationEnabled ? translatePartial : undefined,
@@ -307,9 +293,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   }, [audioRecorder, realtimeEnabled, translationEnabled, startRealtimeSession, translatePartial, translateCommitted, clearTranslationCache, isRecording]);
 
   const pauseResume = useCallback(async () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    await Haptics.impact('light');
 
     try {
       if (isPaused) {
@@ -325,9 +309,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   }, [audioRecorder, isPaused]);
 
   const stopRecording = useCallback(async () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    await Haptics.notification('success');
 
     try {
       if (realtimeEnabled && currentRecordingId) {
@@ -353,30 +335,21 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
 
       let finalUri = uri;
 
-      if (Platform.OS === 'web') {
-        console.log('Web platform - converting blob to base64 for storage');
+      // Blob URL の場合は Base64 に変換（Web）
+      if (uri.startsWith('blob:')) {
+        console.log('Converting blob to base64 for storage');
         try {
           const response = await fetch(uri);
           const blob = await response.blob();
-
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const result = reader.result as string;
-              const base64 = result.split(',')[1];
-              resolve(base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-
+          const base64Data = await FileSystem.blobToBase64(blob);
           console.log('Base64 conversion completed, length:', base64Data.length);
           finalUri = `data:audio/webm;base64,${base64Data}`;
         } catch (webError) {
           console.error('Failed to convert blob to base64:', webError);
           throw new Error('録音データの変換に失敗しました');
         }
-      } else {
+      } else if (FileSystem.documentDirectory) {
+        // Native: ファイルを移動
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `recording_${timestamp}.m4a`;
         const newUri = `${FileSystem.documentDirectory}recordings/${filename}`;
@@ -385,22 +358,16 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
           intermediates: true,
         });
 
-        await FileSystem.moveAsync({
-          from: uri,
-          to: newUri,
-        });
-
+        await FileSystem.moveAsync(uri, newUri);
         finalUri = newUri;
       }
 
       const now = new Date();
       const recordingId = currentRecordingId || Date.now().toString();
 
-      // 波形データを正規化・リサンプリング（40個に）
       const normalizeWaveform = (data: number[]): number[] => {
         if (data.length === 0) return Array(40).fill(0.1);
 
-        // -30dB〜0dBを0〜1にマッピング、pow(1.3)でコントラスト強調
         const normalized = data.map(db => {
           const value = Math.max(0, Math.min(1, (db + 30) / 30));
           return Math.pow(value, 1.3);
@@ -436,7 +403,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
         if (realtimeText.trim()) {
           console.log('Saving realtime transcription result:', realtimeText.substring(0, 100));
 
-          // 翻訳テキストを含めてセグメントを作成
           const transcriptSegments = realtimeState.segments
             .filter((s) => !s.isPartial)
             .map((s) => ({
@@ -447,7 +413,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
               translatedText: translationEnabled ? getTranslation(s.id) : undefined,
             }));
 
-          // 翻訳全文を生成
           let translationData: { targetLanguage: string; text: string } | undefined;
           if (translationEnabled) {
             const translatedTexts = transcriptSegments
@@ -484,12 +449,10 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       Alert.alert('エラー', '録音の保存に失敗しました');
       isStartingRef.current = false;
     }
-  }, [audioRecorder, duration, highlights, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript, translationEnabled, getTranslation, translationTargetLanguage]);
+  }, [audioRecorder, duration, highlights, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession, realtimeState.segments, consolidateSegments, setTranscript, translationEnabled, getTranslation, translationTargetLanguage, fullMeteringHistory]);
 
   const cancelRecording = useCallback(async () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
+    await Haptics.notification('warning');
 
     try {
       if (realtimeEnabled && currentRecordingId) {
@@ -524,9 +487,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   }, [audioRecorder, realtimeEnabled, currentRecordingId, stopRealtimeSession]);
 
   const addHighlightHandler = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }
+    Haptics.impact('heavy');
 
     const newHighlight: Highlight = {
       id: Date.now().toString(),
@@ -611,6 +572,5 @@ const defaultValue: RecordingSessionContextValue = {
 
 export function useRecordingSession() {
   const context = useContext(RecordingSessionContext);
-  // プロバイダーがない場合はデフォルト値を返す（ウェブのランディングページなど）
   return context ?? defaultValue;
 }

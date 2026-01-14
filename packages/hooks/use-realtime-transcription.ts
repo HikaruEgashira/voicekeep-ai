@@ -6,10 +6,10 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import { trpc } from "@/packages/lib/trpc";
 import { RealtimeTranscriptionClient } from "@/packages/lib/realtime-transcription";
-import { WebAudioStream } from "@/packages/lib/web-audio-stream";
+import { createAudioStream, type AudioStreamController } from "@/packages/platform";
 import type {
   TranscriptSegment,
   RealtimeTranscriptionState,
@@ -24,16 +24,6 @@ export interface RealtimeSessionCallbacks {
   onPartial?: (segment: TranscriptSegment) => void;
   /** committed（確定結果）イベント時に呼ばれる */
   onCommitted?: (segment: TranscriptSegment) => void;
-}
-
-// ネイティブプラットフォームでのみ expo-audio-stream をインポート
-let ExpoPlayAudioStream: any = null;
-if (Platform.OS !== "web") {
-  try {
-    ExpoPlayAudioStream = require("@mykin-ai/expo-audio-stream").ExpoPlayAudioStream;
-  } catch (e) {
-    console.warn("[useRealtimeTranscription] expo-audio-stream not available");
-  }
 }
 
 /**
@@ -58,8 +48,7 @@ export function useRealtimeTranscription() {
   const clientRef = useRef<RealtimeTranscriptionClient | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const currentRecordingIdRef = useRef<string | null>(null);
-  const audioSubscriptionRef = useRef<{ remove: () => void } | null>(null);
-  const webAudioStreamRef = useRef<WebAudioStream | null>(null);
+  const audioStreamRef = useRef<AudioStreamController | null>(null);
 
   // tRPC mutation for generating realtime token
   const generateTokenMutation = trpc.ai.generateRealtimeToken.useMutation();
@@ -67,11 +56,8 @@ export function useRealtimeTranscription() {
   // クリーンアップ
   useEffect(() => {
     return () => {
-      if (audioSubscriptionRef.current) {
-        audioSubscriptionRef.current.remove();
-      }
-      if (webAudioStreamRef.current) {
-        webAudioStreamRef.current.stop();
+      if (audioStreamRef.current) {
+        audioStreamRef.current.stop();
       }
       if (clientRef.current) {
         clientRef.current.disconnect();
@@ -80,105 +66,40 @@ export function useRealtimeTranscription() {
   }, []);
 
   /**
-   * 音声ストリーミングを開始（ネイティブプラットフォーム用）
+   * 音声ストリーミングを開始（プラットフォーム抽象化使用）
    */
-  const startNativeAudioStreaming = useCallback(async () => {
-    if (!ExpoPlayAudioStream) {
-      console.warn("[useRealtimeTranscription] ExpoPlayAudioStream not available");
-      return;
-    }
-
+  const startAudioStreaming = useCallback(async () => {
     try {
-      console.log("[useRealtimeTranscription] Starting native audio streaming...");
+      console.log("[useRealtimeTranscription] Starting audio streaming...");
 
-      // Base64からPCMデータをデコードしてRMSを計算する関数
-      const calculateRmsFromBase64 = (base64Data: string): number => {
-        try {
-          // Base64をバイナリに変換
-          const binaryString = atob(base64Data);
-          const len = binaryString.length;
-
-          // 16-bit PCMとしてRMSを計算
-          let sumSquares = 0;
-          let sampleCount = 0;
-
-          for (let i = 0; i < len - 1; i += 2) {
-            // Little-endian 16-bit signed integer
-            const low = binaryString.charCodeAt(i);
-            const high = binaryString.charCodeAt(i + 1);
-            let sample = (high << 8) | low;
-            // 符号付き整数に変換
-            if (sample >= 32768) sample -= 65536;
-            // 正規化 (-1 to 1)
-            const normalizedSample = sample / 32768;
-            sumSquares += normalizedSample * normalizedSample;
-            sampleCount++;
-          }
-
-          if (sampleCount === 0) return 0;
-
-          // RMS計算
-          const rms = Math.sqrt(sumSquares / sampleCount);
-          return rms;
-        } catch {
-          return 0;
-        }
-      };
-
-      // 音声イベントのサブスクリプション
-      audioSubscriptionRef.current = ExpoPlayAudioStream.subscribeToAudioEvents(
-        async (event: { data?: string | Float32Array; soundLevel?: number }) => {
-          if (clientRef.current?.isConnected && event.data && typeof event.data === "string") {
-            // Base64エンコードされた音声データをWebSocketに送信
-            clientRef.current.sendAudioChunk(event.data, 16000);
-
-            // PCMデータからRMSを計算して soundLevel を更新
-            const rms = calculateRmsFromBase64(event.data);
-            setSoundLevel(rms);
-          } else if (event.soundLevel !== undefined) {
-            // soundLevel が直接提供されている場合はそれを使用
-            setSoundLevel(event.soundLevel);
-          }
-        }
-      );
-
-      // 録音を開始（16kHz、モノラル、16bit PCM）
-      await ExpoPlayAudioStream.startRecording({
+      const audioStream = createAudioStream({
         sampleRate: 16000,
         channels: 1,
         encoding: "pcm_16bit",
-        interval: 250, // 250ms間隔で音声データを取得
+        interval: 250,
       });
 
-      console.log("[useRealtimeTranscription] Native audio streaming started");
-    } catch (error) {
-      console.error("[useRealtimeTranscription] Failed to start native audio streaming:", error);
-    }
-  }, []);
-
-  /**
-   * 音声ストリーミングを開始（Webプラットフォーム用）
-   */
-  const startWebAudioStreaming = useCallback(async () => {
-    try {
-      console.log("[useRealtimeTranscription] Starting web audio streaming...");
-
-      webAudioStreamRef.current = new WebAudioStream();
+      audioStreamRef.current = audioStream;
 
       let chunkCount = 0;
-      await webAudioStreamRef.current.start((base64Audio) => {
-        chunkCount++;
-        if (chunkCount % 10 === 1) {
-          console.log(`[useRealtimeTranscription] Sending audio chunk #${chunkCount}, connected: ${clientRef.current?.isConnected}`);
+      await audioStream.start(
+        (base64Audio) => {
+          chunkCount++;
+          if (chunkCount % 10 === 1) {
+            console.log(`[useRealtimeTranscription] Sending audio chunk #${chunkCount}, connected: ${clientRef.current?.isConnected}`);
+          }
+          if (clientRef.current?.isConnected) {
+            clientRef.current.sendAudioChunk(base64Audio, 16000);
+          }
+        },
+        (level) => {
+          setSoundLevel(level);
         }
-        if (clientRef.current?.isConnected) {
-          clientRef.current.sendAudioChunk(base64Audio, 16000);
-        }
-      }, 16000);
+      );
 
-      console.log("[useRealtimeTranscription] Web audio streaming started");
+      console.log("[useRealtimeTranscription] Audio streaming started");
     } catch (error) {
-      console.error("[useRealtimeTranscription] Failed to start web audio streaming:", error);
+      console.error("[useRealtimeTranscription] Failed to start audio streaming:", error);
       setState((prev) => ({
         ...prev,
         error: `マイクアクセス失敗: ${error instanceof Error ? error.message : "不明なエラー"}`,
@@ -187,59 +108,22 @@ export function useRealtimeTranscription() {
   }, []);
 
   /**
-   * 音声ストリーミングを開始（プラットフォームに応じて）
-   */
-  const startAudioStreaming = useCallback(async () => {
-    if (Platform.OS === "web") {
-      await startWebAudioStreaming();
-    } else {
-      await startNativeAudioStreaming();
-    }
-  }, [startNativeAudioStreaming, startWebAudioStreaming]);
-
-  /**
-   * 音声ストリーミングを停止（ネイティブプラットフォーム用）
-   */
-  const stopNativeAudioStreaming = useCallback(async () => {
-    if (!ExpoPlayAudioStream) {
-      return;
-    }
-
-    try {
-      console.log("[useRealtimeTranscription] Stopping native audio streaming...");
-
-      if (audioSubscriptionRef.current) {
-        audioSubscriptionRef.current.remove();
-        audioSubscriptionRef.current = null;
-      }
-
-      await ExpoPlayAudioStream.stopRecording();
-      console.log("[useRealtimeTranscription] Native audio streaming stopped");
-    } catch (error) {
-      console.error("[useRealtimeTranscription] Failed to stop native audio streaming:", error);
-    }
-  }, []);
-
-  /**
-   * 音声ストリーミングを停止（Webプラットフォーム用）
-   */
-  const stopWebAudioStreaming = useCallback(() => {
-    if (webAudioStreamRef.current) {
-      webAudioStreamRef.current.stop();
-      webAudioStreamRef.current = null;
-    }
-  }, []);
-
-  /**
-   * 音声ストリーミングを停止（プラットフォームに応じて）
+   * 音声ストリーミングを停止
    */
   const stopAudioStreaming = useCallback(async () => {
-    if (Platform.OS === "web") {
-      stopWebAudioStreaming();
-    } else {
-      await stopNativeAudioStreaming();
+    try {
+      console.log("[useRealtimeTranscription] Stopping audio streaming...");
+
+      if (audioStreamRef.current) {
+        await audioStreamRef.current.stop();
+        audioStreamRef.current = null;
+      }
+
+      console.log("[useRealtimeTranscription] Audio streaming stopped");
+    } catch (error) {
+      console.error("[useRealtimeTranscription] Failed to stop audio streaming:", error);
     }
-  }, [stopNativeAudioStreaming, stopWebAudioStreaming]);
+  }, []);
 
   // コールバック参照
   const callbacksRef = useRef<RealtimeSessionCallbacks | null>(null);
@@ -536,7 +420,7 @@ export function useRealtimeTranscription() {
 
       throw error;
     }
-  }, [startAudioStreaming]);
+  }, [startAudioStreaming, generateTokenMutation]);
 
   /**
    * セッションを停止

@@ -11,10 +11,10 @@ import {
   Animated as RNAnimated,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import { Swipeable } from "react-native-gesture-handler";
 
 import { ScreenContainer } from "@/packages/components/screen-container";
+import { Haptics } from "@/packages/platform";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
 import { useRecordings } from "@/packages/lib/recordings-context";
 import { useColors } from "@/packages/hooks/use-colors";
@@ -75,9 +75,7 @@ const RecordingCard = React.memo(function RecordingCard({ recording, onPress, on
   const swipeableRef = useRef<Swipeable>(null);
 
   const handleLongPress = useCallback(() => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    Haptics.impact('medium');
     Alert.alert("削除確認", `「${recording.title}」を削除しますか？`, [
       { text: "キャンセル", style: "cancel" },
       { text: "削除", style: "destructive", onPress: onDelete },
@@ -85,9 +83,7 @@ const RecordingCard = React.memo(function RecordingCard({ recording, onPress, on
   }, [recording.title, onDelete]);
 
   const handleDelete = useCallback(() => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    Haptics.impact('medium');
     Alert.alert("削除確認", `「${recording.title}」を削除しますか？`, [
       { text: "キャンセル", style: "cancel", onPress: () => swipeableRef.current?.close() },
       { text: "削除", style: "destructive", onPress: onDelete },
