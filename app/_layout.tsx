@@ -19,6 +19,34 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/packages/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/packages/lib/_core/manus-runtime";
 import { RecordingsProvider } from "@/packages/lib/recordings-context";
+import { LanguageProvider } from "@/packages/lib/i18n/context";
+import { useThemeContext } from "@/packages/lib/theme-provider";
+
+/**
+ * テーマ設定を復元するコンポーネント
+ */
+function ThemeInitializer({ children }: { children: React.ReactNode }) {
+  const { setColorScheme } = useThemeContext();
+
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const saved = await localStorage.getItem("theme-preference");
+        if (saved === "dark" || saved === "light") {
+          await setColorScheme(saved);
+        }
+      } catch (error) {
+        console.error("[ThemeInitializer] Failed to load theme:", error);
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      loadTheme();
+    }
+  }, [setColorScheme]);
+
+  return <>{children}</>;
+}
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -37,7 +65,11 @@ function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <RecordingsProvider>{children}</RecordingsProvider>
+        <LanguageProvider>
+          <ThemeInitializer>
+            <RecordingsProvider>{children}</RecordingsProvider>
+          </ThemeInitializer>
+        </LanguageProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );
