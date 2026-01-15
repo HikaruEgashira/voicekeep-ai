@@ -44,6 +44,8 @@ export default function NoteDetailScreen() {
   const [transcriptionProvider, setTranscriptionProvider] = useState<"elevenlabs" | "gemini">("gemini");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
+  const [editingActionItemId, setEditingActionItemId] = useState<string | null>(null);
+  const [editingActionItemDueDate, setEditingActionItemDueDate] = useState<Date | null>(null);
 
   const recording = getRecording(id || "");
   const player = useAudioPlayer(recording?.audioUri || "");
@@ -370,6 +372,28 @@ const handleSummarize = async () => {
   const handleCancelEditTitle = () => {
     setIsEditingTitle(false);
     setEditedTitle("");
+  };
+
+  const handleStartEditActionItemDueDate = (itemId: string, currentDueDate?: Date) => {
+    setEditingActionItemId(itemId);
+    setEditingActionItemDueDate(currentDueDate || null);
+  };
+
+  const handleSaveActionItemDueDate = () => {
+    if (!recording || !editingActionItemId) return;
+    const updatedItems = recording.actionItems.map((item) =>
+      item.id === editingActionItemId
+        ? { ...item, dueDate: editingActionItemDueDate || undefined }
+        : item
+    );
+    updateRecording(recording.id, { actionItems: updatedItems });
+    setEditingActionItemId(null);
+    setEditingActionItemDueDate(null);
+  };
+
+  const handleCancelEditActionItemDueDate = () => {
+    setEditingActionItemId(null);
+    setEditingActionItemDueDate(null);
   };
 
   const handleExtractKeywords = async () => {
@@ -896,66 +920,123 @@ const handleSummarize = async () => {
                     {recording.actionItems.length > 0 ? (
                       <View style={styles.actionItemsList}>
                         {recording.actionItems.map((item) => (
-                          <TouchableOpacity
-                            key={item.id}
-                            style={styles.actionItemRow}
-                            onPress={() => handleToggleActionItem(item.id)}
-                            activeOpacity={0.7}
-                          >
-                            <View
-                              style={[
-                                styles.checkbox,
-                                {
-                                  backgroundColor: item.completed ? colors.success : 'transparent',
-                                  borderColor: item.completed ? colors.success : colors.border,
-                                },
-                              ]}
+                          <View key={item.id} style={styles.actionItemContainer}>
+                            <TouchableOpacity
+                              style={styles.actionItemRow}
+                              onPress={() => handleToggleActionItem(item.id)}
+                              activeOpacity={0.7}
                             >
-                              {item.completed && (
-                                <IconSymbol name="checkmark" size={12} color="#FFFFFF" />
-                              )}
-                            </View>
-                            <View
-                              style={[
-                                styles.priorityBadge,
-                                {
-                                  backgroundColor:
-                                    item.priority === 'high'
-                                      ? colors.error + '20'
-                                      : item.priority === 'medium'
-                                      ? colors.warning + '20'
-                                      : colors.muted + '20',
-                                },
-                              ]}
-                            >
-                              <Text
+                              <View
                                 style={[
-                                  styles.priorityText,
+                                  styles.checkbox,
                                   {
-                                    color:
-                                      item.priority === 'high'
-                                        ? colors.error
-                                        : item.priority === 'medium'
-                                        ? colors.warning
-                                        : colors.muted,
+                                    backgroundColor: item.completed ? colors.success : 'transparent',
+                                    borderColor: item.completed ? colors.success : colors.border,
                                   },
                                 ]}
                               >
-                                {item.priority === 'high' ? '高' : item.priority === 'medium' ? '中' : '低'}
+                                {item.completed && (
+                                  <IconSymbol name="checkmark" size={12} color="#FFFFFF" />
+                                )}
+                              </View>
+                              <View
+                                style={[
+                                  styles.priorityBadge,
+                                  {
+                                    backgroundColor:
+                                      item.priority === 'high'
+                                        ? colors.error + '20'
+                                        : item.priority === 'medium'
+                                        ? colors.warning + '20'
+                                        : colors.muted + '20',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.priorityText,
+                                    {
+                                      color:
+                                        item.priority === 'high'
+                                          ? colors.error
+                                          : item.priority === 'medium'
+                                          ? colors.warning
+                                          : colors.muted,
+                                    },
+                                  ]}
+                                >
+                                  {item.priority === 'high' ? '高' : item.priority === 'medium' ? '中' : '低'}
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.actionItemText,
+                                  {
+                                    color: item.completed ? colors.muted : colors.foreground,
+                                    textDecorationLine: item.completed ? 'line-through' : 'none',
+                                  },
+                                ]}
+                              >
+                                {item.text}
                               </Text>
-                            </View>
-                            <Text
-                              style={[
-                                styles.actionItemText,
-                                {
-                                  color: item.completed ? colors.muted : colors.foreground,
-                                  textDecorationLine: item.completed ? 'line-through' : 'none',
-                                },
-                              ]}
-                            >
-                              {item.text}
-                            </Text>
-                          </TouchableOpacity>
+                            </TouchableOpacity>
+                            {editingActionItemId === item.id ? (
+                              <View style={styles.dueDateEditRow}>
+                                <TextInput
+                                  style={[
+                                    styles.dueDateInput,
+                                    { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
+                                  ]}
+                                  placeholder="YYYY-MM-DD"
+                                  placeholderTextColor={colors.muted}
+                                  value={editingActionItemDueDate ? editingActionItemDueDate.toISOString().split('T')[0] : ''}
+                                  onChangeText={(text) => {
+                                    if (text) {
+                                      try {
+                                        const date = new Date(text + 'T00:00:00');
+                                        setEditingActionItemDueDate(date);
+                                      } catch (e) {
+                                        // Invalid date format
+                                      }
+                                    } else {
+                                      setEditingActionItemDueDate(null);
+                                    }
+                                  }}
+                                />
+                                <TouchableOpacity
+                                  onPress={handleSaveActionItemDueDate}
+                                  style={[styles.dueDateButton, { backgroundColor: colors.success }]}
+                                >
+                                  <IconSymbol name="checkmark" size={16} color="#FFFFFF" />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={handleCancelEditActionItemDueDate}
+                                  style={[styles.dueDateButton, { backgroundColor: colors.muted }]}
+                                >
+                                  <IconSymbol name="xmark" size={16} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </View>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={() => handleStartEditActionItemDueDate(item.id, item.dueDate)}
+                                style={styles.dueDateDisplayRow}
+                              >
+                                <IconSymbol name="calendar" size={14} color={colors.muted} />
+                                {item.dueDate ? (
+                                  <Text style={[styles.dueDateText, { color: colors.foreground }]}>
+                                    {new Date(item.dueDate).toLocaleDateString('ja-JP', {
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                    })}
+                                  </Text>
+                                ) : (
+                                  <Text style={[styles.dueDatePlaceholder, { color: colors.muted }]}>
+                                    期限を設定
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         ))}
                       </View>
                     ) : (
@@ -1599,6 +1680,45 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     lineHeight: 20,
+  },
+  actionItemContainer: {
+    gap: 8,
+  },
+  dueDateDisplayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginLeft: 30,
+  },
+  dueDateText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  dueDatePlaceholder: {
+    fontSize: 12,
+  },
+  dueDateEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 30,
+  },
+  dueDateInput: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    fontSize: 12,
+  },
+  dueDateButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
   keywordChip: {
     flexDirection: "row",
