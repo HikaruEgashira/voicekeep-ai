@@ -44,11 +44,6 @@ const LANGUAGES: { value: Language; label: string }[] = [
   { value: "en", label: "English" },
 ];
 
-const TRANSCRIPTION_PROVIDERS: { value: TranscriptionProvider; label: string; description: string }[] = [
-  { value: "gemini", label: "Gemini", description: "Googleのマルチモーダルモデル" },
-  { value: "elevenlabs", label: "ElevenLabs", description: "高精度な話者分離機能" },
-];
-
 const TEMPLATES: { value: SummaryTemplate; label: string; description: string }[] = [
   { value: "general", label: "一般", description: "汎用的な要約形式" },
   { value: "meeting", label: "会議", description: "議題・決定事項・アクションアイテム" },
@@ -132,11 +127,6 @@ export default function SettingsScreen() {
   const handleTemplateChange = (template: SummaryTemplate) => {
     Haptics.impact('light');
     setSettings((prev) => ({ ...prev, summaryTemplate: template }));
-  };
-
-  const handleProviderChange = (provider: TranscriptionProvider) => {
-    Haptics.impact('light');
-    setSettings((prev) => ({ ...prev, transcriptionProvider: provider }));
   };
 
   const handleToggle = (key: "autoTranscribe" | "autoSummarize") => {

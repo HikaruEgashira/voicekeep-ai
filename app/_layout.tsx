@@ -1,6 +1,6 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -51,7 +51,6 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const segments = useSegments();
   // ウェブでもAppProvidersを常に使用（tRPCコンテキストが必要なため）
   const isWebLanding = false;
 

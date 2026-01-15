@@ -32,7 +32,7 @@ const AUDIO_SOURCE_OPTIONS: { key: AudioSource; label: string; icon: string }[] 
 
 export default function RecordScreen() {
   const colors = useColors();
-  const { isDesktop, layoutMode } = useResponsive();
+  const { isDesktop } = useResponsive();
   const scrollViewRef = useRef<ScrollView>(null);
   const [audioSource, setAudioSource] = useState<AudioSource>("microphone");
   const isSystemAudioSupported = Platform.OS === "web" && SystemAudioStream.isSupported();

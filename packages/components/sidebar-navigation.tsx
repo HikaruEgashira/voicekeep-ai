@@ -23,7 +23,7 @@ export function SidebarNavigation() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
 
-  const currentRoute = segments[1] || "record";
+  const currentRoute = (segments as string[])[1] || "record";
 
   const handleNavigate = (route: string) => {
     router.push(`/(tabs)/${route}` as any);
