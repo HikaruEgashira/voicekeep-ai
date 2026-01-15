@@ -83,6 +83,7 @@ export default function NoteDetailScreen() {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState("");
   const [highlightedKeyword, setHighlightedKeyword] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
 
   const recording = getRecording(id || "");
   const player = useAudioPlayer(recording?.audioUri || "");
@@ -223,6 +224,18 @@ export default function NoteDetailScreen() {
     },
     [player]
   );
+
+  const handlePlaybackRateChange = useCallback(() => {
+    const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    const currentIndex = rates.indexOf(playbackRate);
+    const nextIndex = (currentIndex + 1) % rates.length;
+    const newRate = rates[nextIndex];
+    setPlaybackRate(newRate);
+    if (player) {
+      player.playbackRate = newRate;
+    }
+    Haptics.impact('light');
+  }, [playbackRate, player]);
 
   const handleTranscribe = async () => {
     if (!recording) return;
@@ -870,6 +883,16 @@ const handleSummarize = async () => {
                   <Text style={[styles.skipText, { color: colors.foreground }]}>+15</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Playback Speed Control */}
+              <TouchableOpacity
+                onPress={handlePlaybackRateChange}
+                style={[styles.playbackRateButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={[styles.playbackRateText, { color: colors.foreground }]}>
+                  {playbackRate}x
+                </Text>
+              </TouchableOpacity>
 
               {/* Add Highlight Button */}
               <TouchableOpacity
@@ -1789,6 +1812,18 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  playbackRateButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 12,
+    alignSelf: "center",
+  },
+  playbackRateText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   highlightsSection: {
     gap: 12,
