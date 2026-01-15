@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Animated as RNAnimated,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Swipeable } from "react-native-gesture-handler";
@@ -176,6 +177,34 @@ const RecordingCard = React.memo(function RecordingCard({ recording, onPress, on
         </View>
       )}
 
+      {recording.tags.length > 0 && (
+        <View style={styles.tagsRow}>
+          {recording.tags.slice(0, 3).map((tag) => (
+            <View
+              key={tag.id}
+              style={[
+                styles.tagChip,
+                { backgroundColor: tag.color || colors.primary + "20" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tagChipText,
+                  { color: tag.color ? "#FFFFFF" : colors.primary },
+                ]}
+              >
+                {tag.name}
+              </Text>
+            </View>
+          ))}
+          {recording.tags.length > 3 && (
+            <Text style={[styles.moreTagsText, { color: colors.muted }]}>
+              +{recording.tags.length - 3}
+            </Text>
+          )}
+        </View>
+      )}
+
       {recording.transcript && (
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>
           {recording.transcript.text.substring(0, 100)}...
@@ -221,6 +250,16 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "transcribed" | "summarized">("all");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // 全ての一意なタグを収集
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    state.recordings.forEach((r) => {
+      r.tags.forEach((t) => tagSet.add(t.name));
+    });
+    return Array.from(tagSet).sort();
+  }, [state.recordings]);
 
   // 検索クエリのデバウンス処理（300ms）
   useEffect(() => {
@@ -255,8 +294,13 @@ export default function HomeScreen() {
       result = result.filter((r) => r.summary);
     }
 
+    // Apply tag filter
+    if (selectedTag) {
+      result = result.filter((r) => r.tags.some((t) => t.name === selectedTag));
+    }
+
     return result;
-  }, [state.recordings, debouncedSearchQuery, filter]);
+  }, [state.recordings, debouncedSearchQuery, filter, selectedTag]);
 
   // コールバックをメモ化してRecordingCardの再レンダリングを防止
   const handleRecordingPress = useCallback((id: string) => {
@@ -329,6 +373,60 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Tag Filter */}
+      {allTags.length > 0 && (
+        <View style={styles.tagFilterRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagFilterContent}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedTag(null)}
+              style={[
+                styles.tagFilterButton,
+                {
+                  backgroundColor: selectedTag === null ? colors.primary + "20" : colors.surface,
+                  borderColor: selectedTag === null ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <IconSymbol name="tag.fill" size={14} color={selectedTag === null ? colors.primary : colors.muted} />
+              <Text
+                style={[
+                  styles.tagFilterText,
+                  { color: selectedTag === null ? colors.primary : colors.muted },
+                ]}
+              >
+                すべてのタグ
+              </Text>
+            </TouchableOpacity>
+            {allTags.map((tag) => (
+              <TouchableOpacity
+                key={tag}
+                onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                style={[
+                  styles.tagFilterButton,
+                  {
+                    backgroundColor: selectedTag === tag ? colors.primary + "20" : colors.surface,
+                    borderColor: selectedTag === tag ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tagFilterText,
+                    { color: selectedTag === tag ? colors.primary : colors.muted },
+                  ]}
+                >
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <FlatList
         data={filteredRecordings}
@@ -507,5 +605,44 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
+  },
+  tagFilterRow: {
+    paddingBottom: 8,
+  },
+  tagFilterContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  tagFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tagFilterText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  tagChipText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  moreTagsText: {
+    fontSize: 11,
+    alignSelf: "center",
   },
 });
