@@ -101,6 +101,18 @@ export default function NoteDetailScreen() {
   // Q&A mutation
   const qaMutation = trpc.ai.askQuestion.useMutation();
 
+  // Tags mutation
+  const tagsMutation = trpc.ai.generateTags.useMutation();
+
+  // Action items mutation
+  const actionItemsMutation = trpc.ai.extractActionItems.useMutation();
+
+  // Keywords mutation
+  const keywordsMutation = trpc.ai.extractKeywords.useMutation();
+
+  // Sentiment analysis mutation
+  const sentimentMutation = trpc.ai.analyzeSentiment.useMutation();
+
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true });
     return () => {
@@ -276,11 +288,88 @@ const handleSummarize = async () => {
           processedAt: new Date(),
         });
       }
+
+      // Auto-generate AI analysis after summarization
+      if (recording.tags.length === 0) {
+        handleGenerateTags();
+      }
+      if (recording.actionItems.length === 0) {
+        handleExtractActionItems();
+      }
+      if (recording.keywords.length === 0) {
+        handleExtractKeywords();
+      }
+      if (!recording.sentiment) {
+        handleAnalyzeSentiment();
+      }
     } catch (error) {
       console.error("Summary error:", error);
       updateRecording(recording.id, { status: "transcribed" });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleGenerateTags = async () => {
+    if (!recording?.transcript) return;
+
+    try {
+      const result = await tagsMutation.mutateAsync({
+        text: recording.transcript.text,
+        maxTags: 5,
+      });
+      if (result.tags && result.tags.length > 0) {
+        updateRecording(recording.id, { tags: result.tags });
+      }
+    } catch (error) {
+      console.error("Tags generation error:", error);
+    }
+  };
+
+  const handleExtractActionItems = async () => {
+    if (!recording?.transcript) return;
+
+    try {
+      const result = await actionItemsMutation.mutateAsync({
+        text: recording.transcript.text,
+        maxItems: 10,
+      });
+      if (result.actionItems && result.actionItems.length > 0) {
+        updateRecording(recording.id, { actionItems: result.actionItems });
+      }
+    } catch (error) {
+      console.error("Action items extraction error:", error);
+    }
+  };
+
+  const handleExtractKeywords = async () => {
+    if (!recording?.transcript) return;
+
+    try {
+      const result = await keywordsMutation.mutateAsync({
+        text: recording.transcript.text,
+        maxKeywords: 10,
+      });
+      if (result.keywords && result.keywords.length > 0) {
+        updateRecording(recording.id, { keywords: result.keywords });
+      }
+    } catch (error) {
+      console.error("Keywords extraction error:", error);
+    }
+  };
+
+  const handleAnalyzeSentiment = async () => {
+    if (!recording?.transcript) return;
+
+    try {
+      const result = await sentimentMutation.mutateAsync({
+        text: recording.transcript.text,
+      });
+      if (result) {
+        updateRecording(recording.id, { sentiment: result });
+      }
+    } catch (error) {
+      console.error("Sentiment analysis error:", error);
     }
   };
 
@@ -579,6 +668,316 @@ const handleSummarize = async () => {
                         </Text>
                       </View>
                     ))}
+                  </View>
+
+                  {/* Tags Section */}
+                  <View style={styles.summarySection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                        タグ
+                      </Text>
+                      {recording.tags.length === 0 && recording.transcript && (
+                        <TouchableOpacity
+                          onPress={handleGenerateTags}
+                          disabled={tagsMutation.isPending}
+                          style={[styles.generateTagsButton, { backgroundColor: colors.surface }]}
+                        >
+                          {tagsMutation.isPending ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <>
+                              <IconSymbol name="sparkles" size={14} color={colors.primary} />
+                              <Text style={[styles.generateTagsText, { color: colors.primary }]}>
+                                生成
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {recording.tags.length > 0 ? (
+                      <View style={styles.tagsContainer}>
+                        {recording.tags.map((tag) => (
+                          <View
+                            key={tag.id}
+                            style={[
+                              styles.tagChip,
+                              { backgroundColor: tag.color || colors.primary + '20' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.tagText,
+                                { color: tag.color ? '#FFFFFF' : colors.primary },
+                              ]}
+                            >
+                              {tag.name}
+                            </Text>
+                            {tag.isAutoGenerated && tag.confidence && (
+                              <Text
+                                style={[
+                                  styles.tagConfidence,
+                                  { color: tag.color ? 'rgba(255,255,255,0.7)' : colors.muted },
+                                ]}
+                              >
+                                {Math.round(tag.confidence * 100)}%
+                              </Text>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={[styles.emptyTagsText, { color: colors.muted }]}>
+                        タグがありません
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Action Items Section */}
+                  <View style={styles.summarySection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                        アクションアイテム
+                      </Text>
+                      {recording.actionItems.length === 0 && recording.transcript && (
+                        <TouchableOpacity
+                          onPress={handleExtractActionItems}
+                          disabled={actionItemsMutation.isPending}
+                          style={[styles.generateTagsButton, { backgroundColor: colors.surface }]}
+                        >
+                          {actionItemsMutation.isPending ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <>
+                              <IconSymbol name="sparkles" size={14} color={colors.primary} />
+                              <Text style={[styles.generateTagsText, { color: colors.primary }]}>
+                                抽出
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {recording.actionItems.length > 0 ? (
+                      <View style={styles.actionItemsList}>
+                        {recording.actionItems.map((item) => (
+                          <View key={item.id} style={styles.actionItemRow}>
+                            <View
+                              style={[
+                                styles.priorityBadge,
+                                {
+                                  backgroundColor:
+                                    item.priority === 'high'
+                                      ? colors.error + '20'
+                                      : item.priority === 'medium'
+                                      ? colors.warning + '20'
+                                      : colors.muted + '20',
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.priorityText,
+                                  {
+                                    color:
+                                      item.priority === 'high'
+                                        ? colors.error
+                                        : item.priority === 'medium'
+                                        ? colors.warning
+                                        : colors.muted,
+                                  },
+                                ]}
+                              >
+                                {item.priority === 'high' ? '高' : item.priority === 'medium' ? '中' : '低'}
+                              </Text>
+                            </View>
+                            <Text style={[styles.actionItemText, { color: colors.foreground }]}>
+                              {item.text}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={[styles.emptyTagsText, { color: colors.muted }]}>
+                        アクションアイテムがありません
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Keywords Section */}
+                  <View style={styles.summarySection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                        キーワード
+                      </Text>
+                      {recording.keywords.length === 0 && recording.transcript && (
+                        <TouchableOpacity
+                          onPress={handleExtractKeywords}
+                          disabled={keywordsMutation.isPending}
+                          style={[styles.generateTagsButton, { backgroundColor: colors.surface }]}
+                        >
+                          {keywordsMutation.isPending ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <>
+                              <IconSymbol name="sparkles" size={14} color={colors.primary} />
+                              <Text style={[styles.generateTagsText, { color: colors.primary }]}>
+                                抽出
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {recording.keywords.length > 0 ? (
+                      <View style={styles.tagsContainer}>
+                        {recording.keywords.map((keyword) => (
+                          <View
+                            key={keyword.id}
+                            style={[
+                              styles.keywordChip,
+                              {
+                                backgroundColor:
+                                  keyword.importance === 'high'
+                                    ? colors.primary + '30'
+                                    : keyword.importance === 'medium'
+                                    ? colors.primary + '20'
+                                    : colors.primary + '10',
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.tagText, { color: colors.primary }]}>
+                              {keyword.text}
+                            </Text>
+                            {keyword.frequency > 1 && (
+                              <Text style={[styles.keywordFrequency, { color: colors.muted }]}>
+                                ×{keyword.frequency}
+                              </Text>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={[styles.emptyTagsText, { color: colors.muted }]}>
+                        キーワードがありません
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Sentiment Analysis Section */}
+                  <View style={styles.summarySection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                        感情分析
+                      </Text>
+                      {!recording.sentiment && recording.transcript && (
+                        <TouchableOpacity
+                          onPress={handleAnalyzeSentiment}
+                          disabled={sentimentMutation.isPending}
+                          style={[styles.generateTagsButton, { backgroundColor: colors.surface }]}
+                        >
+                          {sentimentMutation.isPending ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <>
+                              <IconSymbol name="sparkles" size={14} color={colors.primary} />
+                              <Text style={[styles.generateTagsText, { color: colors.primary }]}>
+                                分析
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {recording.sentiment ? (
+                      <View style={styles.sentimentContainer}>
+                        <View style={styles.sentimentHeader}>
+                          <View
+                            style={[
+                              styles.sentimentBadge,
+                              {
+                                backgroundColor:
+                                  recording.sentiment.overallSentiment === 'positive'
+                                    ? colors.success + '20'
+                                    : recording.sentiment.overallSentiment === 'negative'
+                                    ? colors.error + '20'
+                                    : colors.muted + '20',
+                              },
+                            ]}
+                          >
+                            <IconSymbol
+                              name={
+                                recording.sentiment.overallSentiment === 'positive'
+                                  ? 'face.smiling'
+                                  : recording.sentiment.overallSentiment === 'negative'
+                                  ? 'face.smiling'
+                                  : 'face.smiling'
+                              }
+                              size={18}
+                              color={
+                                recording.sentiment.overallSentiment === 'positive'
+                                  ? colors.success
+                                  : recording.sentiment.overallSentiment === 'negative'
+                                  ? colors.error
+                                  : colors.muted
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.sentimentLabel,
+                                {
+                                  color:
+                                    recording.sentiment.overallSentiment === 'positive'
+                                      ? colors.success
+                                      : recording.sentiment.overallSentiment === 'negative'
+                                      ? colors.error
+                                      : colors.muted,
+                                },
+                              ]}
+                            >
+                              {recording.sentiment.overallSentiment === 'positive'
+                                ? 'ポジティブ'
+                                : recording.sentiment.overallSentiment === 'negative'
+                                ? 'ネガティブ'
+                                : 'ニュートラル'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.sentimentScore, { color: colors.muted }]}>
+                            信頼度: {Math.round(recording.sentiment.confidence * 100)}%
+                          </Text>
+                        </View>
+                        {recording.sentiment.summary && (
+                          <Text style={[styles.sentimentSummary, { color: colors.foreground }]}>
+                            {recording.sentiment.summary}
+                          </Text>
+                        )}
+                        <View style={styles.emotionsGrid}>
+                          {Object.entries(recording.sentiment.emotions).map(([emotion, value]) => (
+                            <View key={emotion} style={styles.emotionItem}>
+                              <Text style={[styles.emotionLabel, { color: colors.muted }]}>
+                                {emotion === 'joy' ? '喜び' :
+                                 emotion === 'sadness' ? '悲しみ' :
+                                 emotion === 'anger' ? '怒り' :
+                                 emotion === 'fear' ? '恐れ' :
+                                 emotion === 'surprise' ? '驚き' : '嫌悪'}
+                              </Text>
+                              <View style={[styles.emotionBar, { backgroundColor: colors.border }]}>
+                                <View
+                                  style={[
+                                    styles.emotionFill,
+                                    { width: `${value * 100}%`, backgroundColor: colors.primary },
+                                  ]}
+                                />
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    ) : (
+                      <Text style={[styles.emptyTagsText, { color: colors.muted }]}>
+                        感情分析がありません
+                      </Text>
+                    )}
                   </View>
                 </>
               ) : (
@@ -937,5 +1336,130 @@ const styles = StyleSheet.create({
   providerHint: {
     fontSize: 13,
     marginTop: 4,
+  },
+  tagsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  generateTagsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  generateTagsText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  tagText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  tagConfidence: {
+    fontSize: 11,
+  },
+  emptyTagsText: {
+    fontSize: 14,
+  },
+  actionItemsList: {
+    gap: 10,
+  },
+  actionItemRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 30,
+    alignItems: "center",
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  actionItemText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  keywordChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  keywordFrequency: {
+    fontSize: 11,
+  },
+  sentimentContainer: {
+    gap: 12,
+  },
+  sentimentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sentimentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  sentimentLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sentimentScore: {
+    fontSize: 12,
+  },
+  sentimentSummary: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  emotionsGrid: {
+    gap: 8,
+  },
+  emotionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  emotionLabel: {
+    fontSize: 12,
+    width: 40,
+  },
+  emotionBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  emotionFill: {
+    height: "100%",
+    borderRadius: 4,
   },
 });
