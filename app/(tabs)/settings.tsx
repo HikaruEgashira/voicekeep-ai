@@ -16,6 +16,8 @@ import { Haptics, Storage } from "@/packages/platform";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
 import { useRecordings } from "@/packages/lib/recordings-context";
 import { useColors } from "@/packages/hooks/use-colors";
+import { useThemeContext } from "@/packages/lib/theme-provider";
+import { useTranslation } from "@/packages/lib/i18n/context";
 
 type SummaryTemplate = "general" | "meeting" | "interview" | "lecture";
 type Language = "ja" | "en" | "auto";
@@ -61,6 +63,8 @@ const SETTINGS_KEY = "app-settings";
 export default function SettingsScreen() {
   const colors = useColors();
   const { state: recordingsState } = useRecordings();
+  const { colorScheme, setColorScheme } = useThemeContext();
+  const { t } = useTranslation();
 
   const [settings, setSettings] = useState<SettingsState>({
     language: "auto",
@@ -238,6 +242,28 @@ export default function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+
+        {/* Dark Mode */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleContent}>
+              <Text style={[styles.toggleLabel, { color: colors.foreground }]}>ダークモード</Text>
+              <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                暗い環境での目の疲労を軽減
+              </Text>
+            </View>
+            <Switch
+              value={colorScheme === "dark"}
+              onValueChange={async (value) => {
+                await setColorScheme(value ? "dark" : "light");
+                await Storage.setItem("theme-preference", value ? "dark" : "light");
+                await Haptics.impact("light");
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
           </View>
         </View>
 
