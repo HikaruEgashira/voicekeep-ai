@@ -40,15 +40,9 @@ backlog.mdから精査した、実際に対応が必要な問題のみを抽出�
 - **場所**: `app/note/[id].tsx:1063-1086`
 - **修正内容**: ローディング中は背景色をmutedに変更し、「翻訳中...」テキストを表示
 
----
-
-## 未対応（パッケージインストールが必要）
-
-### T6. 日付入力をDatePickerに変更
-- **場所**: `app/note/[id].tsx:1283-1302`
-- **問題**: TextInputでYYYY-MM-DD形式入力を求めている
-- **修正**: `@react-native-community/datetimepicker`をインストールして使用
-- **工数**: 中
+### ~~T6. 日付入力をDatePickerに変更~~ ✅
+- **場所**: `app/note/[id].tsx:1307-1350`
+- **修正内容**: `@react-native-community/datetimepicker`を導入し、TextInputをDateTimePickerに置換
 
 ---
 

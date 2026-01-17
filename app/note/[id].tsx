@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 import { ScreenContainer } from "@/packages/components/screen-container";
 import { Haptics, FileSystem } from "@/packages/platform";
@@ -85,6 +86,7 @@ export default function NoteDetailScreen() {
   const [editedTitle, setEditedTitle] = useState("");
   const [editingActionItemId, setEditingActionItemId] = useState<string | null>(null);
   const [editingActionItemDueDate, setEditingActionItemDueDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState("");
   const [highlightedKeyword, setHighlightedKeyword] = useState<string | null>(null);
@@ -1304,27 +1306,33 @@ const handleSummarize = async () => {
                             </TouchableOpacity>
                             {editingActionItemId === item.id ? (
                               <View style={styles.dueDateEditRow}>
-                                <TextInput
+                                <TouchableOpacity
+                                  onPress={() => setShowDatePicker(true)}
                                   style={[
                                     styles.dueDateInput,
-                                    { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
+                                    { backgroundColor: colors.surface, borderColor: colors.border },
                                   ]}
-                                  placeholder="YYYY-MM-DD"
-                                  placeholderTextColor={colors.muted}
-                                  value={editingActionItemDueDate ? editingActionItemDueDate.toISOString().split('T')[0] : ''}
-                                  onChangeText={(text) => {
-                                    if (text) {
-                                      try {
-                                        const date = new Date(text + 'T00:00:00');
-                                        setEditingActionItemDueDate(date);
-                                      } catch (e) {
-                                        // Invalid date format
+                                >
+                                  <Text style={{ color: editingActionItemDueDate ? colors.foreground : colors.muted }}>
+                                    {editingActionItemDueDate
+                                      ? editingActionItemDueDate.toLocaleDateString('ja-JP')
+                                      : '日付を選択'}
+                                  </Text>
+                                </TouchableOpacity>
+                                {showDatePicker && (
+                                  <DateTimePicker
+                                    value={editingActionItemDueDate || new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                      setShowDatePicker(Platform.OS === 'ios');
+                                      if (selectedDate) {
+                                        setEditingActionItemDueDate(selectedDate);
                                       }
-                                    } else {
-                                      setEditingActionItemDueDate(null);
-                                    }
-                                  }}
-                                />
+                                    }}
+                                    locale="ja-JP"
+                                  />
+                                )}
                                 <TouchableOpacity
                                   onPress={handleSaveActionItemDueDate}
                                   style={[styles.dueDateButton, { backgroundColor: colors.success }]}
@@ -1332,7 +1340,10 @@ const handleSummarize = async () => {
                                   <IconSymbol name="checkmark" size={16} color="#FFFFFF" />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  onPress={handleCancelEditActionItemDueDate}
+                                  onPress={() => {
+                                    handleCancelEditActionItemDueDate();
+                                    setShowDatePicker(false);
+                                  }}
                                   style={[styles.dueDateButton, { backgroundColor: colors.muted }]}
                                 >
                                   <IconSymbol name="xmark" size={16} color="#FFFFFF" />
