@@ -688,11 +688,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     flexGrow: 1,
   },
-  listContentDesktop: {
-    maxWidth: 1400,
-    alignSelf: "center",
-    width: "100%",
-  },
+  listContentDesktop: {},
   listItem: {
     width: "100%",
   },
