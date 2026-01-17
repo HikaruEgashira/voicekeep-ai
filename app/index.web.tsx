@@ -75,11 +75,21 @@ interface VoiceVisualizerProps {
 }
 
 function VoiceVisualizer({ isActive, bars = 24 }: VoiceVisualizerProps) {
-  const [isClient, setIsClient] = useState(false);
+  const [barHeights, setBarHeights] = useState<number[]>([]);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    // Generate random heights only on client side to avoid hydration mismatch
+    setBarHeights(Array.from({ length: bars }, () => 20 + Math.random() * 80));
+  }, [bars]);
+
+  useEffect(() => {
+    if (!isActive || barHeights.length === 0) return;
+    // Animate bar heights when recording
+    const interval = setInterval(() => {
+      setBarHeights(Array.from({ length: bars }, () => 20 + Math.random() * 80));
+    }, 150);
+    return () => clearInterval(interval);
+  }, [isActive, bars, barHeights.length]);
 
   return (
     <div className="h-16 w-full flex items-center justify-center gap-1">
@@ -87,14 +97,13 @@ function VoiceVisualizer({ isActive, bars = 24 }: VoiceVisualizerProps) {
         <div
           key={i}
           className={cn(
-            "w-1 rounded-full transition-all duration-300",
-            isActive ? "bg-primary animate-pulse" : "bg-primary/20 h-2"
+            "w-1 rounded-full transition-all duration-150",
+            isActive ? "bg-primary" : "bg-primary/20 h-2"
           )}
           style={
-            isActive && isClient
+            isActive && barHeights.length > 0
               ? {
-                  height: `${20 + Math.random() * 80}%`,
-                  animationDelay: `${i * 0.05}s`,
+                  height: `${barHeights[i] ?? 50}%`,
                 }
               : undefined
           }
