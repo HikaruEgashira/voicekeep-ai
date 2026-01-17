@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions } from "react-native";
 import { useColors } from "@/packages/hooks/use-colors";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
 
@@ -21,6 +21,8 @@ function formatTime(seconds: number): string {
 function RecordControlsDemo({ isRecording, isPaused, duration, realtimeEnabled, connectionStatus }: RecordControlsProps) {
   const colors = useColors();
   const pulseAnim = new Animated.Value(1);
+  const { width } = useWindowDimensions();
+  const waveformBarCount = Math.floor((width - 72) / 8);
 
   return (
     <View style={styles.container}>
@@ -52,7 +54,7 @@ function RecordControlsDemo({ isRecording, isPaused, duration, realtimeEnabled, 
       {/* Waveform Mock */}
       <View style={[styles.waveform, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
         <View style={styles.waveformBars}>
-          {Array.from({ length: 50 }).map((_, i) => {
+          {Array.from({ length: waveformBarCount }).map((_, i) => {
             const barHeight = isRecording && !isPaused ? 8 + Math.random() * 52 : 20;
             return (
               <View
