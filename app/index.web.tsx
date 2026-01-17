@@ -197,6 +197,15 @@ function VoiceMemoLanding() {
     return () => clearInterval(interval);
   }, []);
 
+  // SSR placeholder to avoid hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="relative min-h-screen w-full bg-background flex items-center justify-center" style={{ height: '100vh' }}>
+        <div className="text-muted">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen w-full bg-background overflow-y-auto" style={{ height: '100vh' }}>
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3 pointer-events-none" />
