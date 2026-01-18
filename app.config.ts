@@ -1,4 +1,5 @@
 import type { ExpoConfig } from "expo/config";
+import pkg from "./package.json";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
@@ -23,7 +24,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.9.0",
+  version: pkg.version,
   owner: "hikae",
   extra: {
     eas: {
